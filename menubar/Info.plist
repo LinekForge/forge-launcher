@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>XiaoFu</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.linekforge.forge-launcher</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleName</key>
+    <string>Forge Launcher</string>
+    <key>CFBundleDisplayName</key>
+    <string>Forge Launcher</string>
+    <key>CFBundleVersion</key>
+    <string>1.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Forge Launcher需要控制终端（Ghostty / Terminal.app）来启动 Claude Code 会话。</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>public.folder</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>

@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# 编译产物（本地 build 部署到项目目录，不追踪源码之外的东西）
+Forge Launcher.app/
+
+# 环境与敏感信息
+.env
+.env.*
+
+# 日志
+*.log
+
+# node（未来如有）
+node_modules/
+.wrangler/
