@@ -11,7 +11,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     var popoverClosing = false
     var refreshTimer: Timer?
 
-    let terminal: TerminalAdapter = detectTerminal()
+    let terminal: TerminalAdapter = DynamicTerminal()
     let scanner = SessionScanner()
     let store = SessionStore()
     let descStore = SessionDescriptionStore()

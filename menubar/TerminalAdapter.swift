@@ -10,19 +10,37 @@ protocol TerminalAdapter {
     func focusTerminalWindow(forPID pid: Int) -> Bool
 }
 
-// MARK: - Auto-detect
+// MARK: - Dynamic Terminal (auto-detect on every call)
 
-/// 检测系统里在跑什么终端，自动选最合适的实现。
-/// 优先级：Ghostty > Terminal.app（macOS 自带兜底）。
-/// 启动时调一次——用户无需配置。
-func detectTerminal() -> TerminalAdapter {
-    let apps = NSWorkspace.shared.runningApplications
-    if apps.contains(where: { $0.bundleIdentifier == "com.mitchellh.ghostty" }) {
-        os_log("detectTerminal: Ghostty", log: log, type: .info)
-        return GhosttyTerminal()
+/// 每次 openTerminal / focusTerminalWindow 时动态检测当前跑着什么终端。
+/// Ghostty 在跑就用 Ghostty，否则 Terminal.app 兜底。
+/// 用户中途启动 Ghostty——下一次操作自动切过去，不用重启 Launcher。
+class DynamicTerminal: TerminalAdapter {
+    private var lastType: String = ""
+
+    private func current() -> TerminalAdapter {
+        let apps = NSWorkspace.shared.runningApplications
+        if apps.contains(where: { $0.bundleIdentifier == "com.mitchellh.ghostty" }) {
+            if lastType != "ghostty" {
+                lastType = "ghostty"
+                os_log("Terminal: → Ghostty", log: log, type: .info)
+            }
+            return GhosttyTerminal()
+        }
+        if lastType != "terminal" {
+            lastType = "terminal"
+            os_log("Terminal: → Terminal.app", log: log, type: .info)
+        }
+        return AppleTerminal()
     }
-    os_log("detectTerminal: Terminal.app (fallback)", log: log, type: .info)
-    return AppleTerminal()
+
+    func openTerminal(_ command: String) {
+        current().openTerminal(command)
+    }
+
+    func focusTerminalWindow(forPID pid: Int) -> Bool {
+        return current().focusTerminalWindow(forPID: pid)
+    }
 }
 
 // MARK: - Ghostty Implementation
