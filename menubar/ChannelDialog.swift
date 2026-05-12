@@ -11,6 +11,8 @@ class ChannelDialog {
     let scanner: SessionScanner
     let descStore: SessionDescriptionStore
 
+    private static let channelFlags = "--dangerously-load-development-channels server:hub server:engine"
+
     init(client: HubClient, terminal: TerminalAdapter, scanner: SessionScanner, descStore: SessionDescriptionStore) {
         self.client = client
         self.terminal = terminal
@@ -82,7 +84,7 @@ class ChannelDialog {
         }
 
         client.writeSessionFile(tag: tag, description: desc, channels: subscribe, history: history)
-        terminal.openTerminal("cd ~ && claude --dangerously-load-development-channels server:hub server:engine")
+        terminal.openTerminal("cd ~ && claude \(Self.channelFlags)")
     }
 
     // MARK: - Custom Launch
@@ -113,7 +115,7 @@ class ChannelDialog {
         }
 
         client.writeSessionFile(tag: tag, description: desc, channels: result.subscribe, history: result.history)
-        terminal.openTerminal("cd ~ && claude --dangerously-load-development-channels server:hub server:engine")
+        terminal.openTerminal("cd ~ && claude \(Self.channelFlags)")
     }
 
     // MARK: - Resume Channel
@@ -147,7 +149,7 @@ class ChannelDialog {
         ) else { return }
 
         client.writeSessionFile(tag: tag, description: desc, channels: result.subscribe, history: result.history)
-        terminal.openTerminal("cd ~ && claude --resume \(sid) --dangerously-load-development-channels server:hub server:engine")
+        terminal.openTerminal("cd ~ && claude --resume \(sid) \(Self.channelFlags)")
     }
 
     // MARK: - Hub Naming (tag)

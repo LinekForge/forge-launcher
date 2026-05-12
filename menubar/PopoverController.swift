@@ -230,10 +230,7 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
     /// "Forge引擎" → "forge yin qing fyq"——用户打 "yj" 或 "yinjing" 都能命中。
     /// 纯英文/数字原样包含（转换对拉丁字符是 noop），不影响英文搜索。
     private func searchablePinyin(_ s: String) -> String {
-        let mutable = NSMutableString(string: s)
-        CFStringTransform(mutable, nil, kCFStringTransformToLatin, false)
-        CFStringTransform(mutable, nil, kCFStringTransformStripDiacritics, false)
-        let latin = (mutable as String).lowercased()
+        let latin = toLatin(s)
         let initials = latin
             .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
             .compactMap { $0.first }
@@ -287,14 +284,18 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
         }
     }
 
+    private static let groupDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "M月d日"
+        return f
+    }()
+
     private func groupLabel(for timestamp: TimeInterval) -> String {
         let date = Date(timeIntervalSince1970: timestamp)
         let cal = Calendar.current
         if cal.isDateInToday(date) { return "今天" }
         if cal.isDateInYesterday(date) { return "昨天" }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "M月d日"
-        return formatter.string(from: date)
+        return Self.groupDateFormatter.string(from: date)
     }
 
     // MARK: - NSTextFieldDelegate

@@ -48,9 +48,7 @@ class HubExtension {
     }
 
     /// 右键任意 session 的"📝 描述..."。
-    /// - Parameter scanner: 历史签名的冗余参数（调用方已通过 init 传过 scanner 引用）。
-    ///   保留签名以避免 AppDelegate 改动——delete 方向的 refactor 见 README 待做。
-    func renameSession(_ sid: String, scanner: SessionScanner, onDone: @escaping () -> Void) {
+    func renameSession(_ sid: String, onDone: @escaping () -> Void) {
         dialog.rename(sid: sid, onDone: onDone)
     }
 

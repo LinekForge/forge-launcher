@@ -48,7 +48,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popoverCtrl.onNew = { [weak self] in self?.launchNew() }
         popoverCtrl.onNewChannel = { [weak self] in self?.hub?.launchChannel() }
         popoverCtrl.onRename = { [weak self] sid in
-            self?.hub?.renameSession(sid, scanner: self!.scanner) { self?.scanAndSync() }
+            self?.hub?.renameSession(sid) { self?.scanAndSync() }
         }
         popoverCtrl.onHubName = { [weak self] sid in self?.hub?.hubNameSession(sid) }
         popoverCtrl.onResumeChannel = { [weak self] sid in
@@ -56,7 +56,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             self?.hub?.resumeChannel(sid)
         }
         popoverCtrl.onRepair = { [weak self] in self?.repairStaleSessions() }
-        popoverCtrl.onRefresh = { [weak self] in self?.refreshSessions() }
+        popoverCtrl.onRefresh = { [weak self] in self?.scanAndSync() }
         popoverCtrl.onQuit = { NSApplication.shared.terminate(nil) }
         popoverCtrl.onViewAll = { [weak self] in self?.openAllSessions() }
         popoverCtrl.onStar = { [weak self] sid in self?.toggleStar(sid) }
@@ -111,7 +111,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     func syncDataToPopover() {
-        descStore.load()
         popoverCtrl.allSessions = scanner.sessions
         popoverCtrl.activeSIDs = scanner.activeSIDs
         popoverCtrl.starredSIDs = store.stars
@@ -128,6 +127,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     func scanAndSync() {
         scanner.scanSessionsInBackground { [weak self] in
+            self?.descStore.load()   // reload from disk to pick up external edits
             self?.syncDataToPopover()
         }
     }
@@ -232,7 +232,4 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         return nil
     }
 
-    func refreshSessions() {
-        scanAndSync()
-    }
 }

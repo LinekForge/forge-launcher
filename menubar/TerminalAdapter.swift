@@ -18,6 +18,18 @@ private func escapeForAppleScript(_ command: String) -> String {
         .replacingOccurrences(of: "\"", with: "\\\"")
 }
 
+/// Run an AppleScript and log errors. Returns the result descriptor (nil on failure).
+@discardableResult
+private func runAppleScript(_ source: String, label: String) -> NSAppleEventDescriptor? {
+    let script = NSAppleScript(source: source)
+    var errorDict: NSDictionary?
+    let result = script?.executeAndReturnError(&errorDict)
+    if let err = errorDict {
+        os_log("%{public}@ failed: %{public}@", log: log, type: .error, label, err.description)
+    }
+    return result
+}
+
 /// PID → TTY name (e.g. "ttys003"). Returns nil if PID not found or ps fails.
 private func ttyForPID(_ pid: Int) -> String? {
     let process = Process()
@@ -88,12 +100,7 @@ class GhosttyTerminal: TerminalAdapter {
             send key "enter" to term
         end tell
         """
-        let appleScript = NSAppleScript(source: script)
-        var errorDict: NSDictionary?
-        appleScript?.executeAndReturnError(&errorDict)
-        if let err = errorDict {
-            os_log("Ghostty openTerminal failed: %{public}@", log: log, type: .error, err.description)
-        }
+        runAppleScript(script, label: "Ghostty openTerminal")
     }
 
     func focusTerminalWindow(forPID pid: Int) -> Bool {
@@ -120,13 +127,7 @@ class GhosttyTerminal: TerminalAdapter {
         end tell
         return false
         """
-        let appleScript = NSAppleScript(source: script)
-        var errorDict: NSDictionary?
-        let result = appleScript?.executeAndReturnError(&errorDict)
-        if let err = errorDict {
-            os_log("Ghostty focus failed: %{public}@", log: log, type: .error, err.description)
-        }
-        return result?.booleanValue ?? false
+        return runAppleScript(script, label: "Ghostty focus")?.booleanValue ?? false
     }
 }
 
@@ -142,12 +143,7 @@ class AppleTerminal: TerminalAdapter {
             do script "\(escaped)"
         end tell
         """
-        let appleScript = NSAppleScript(source: script)
-        var errorDict: NSDictionary?
-        appleScript?.executeAndReturnError(&errorDict)
-        if let err = errorDict {
-            os_log("Terminal.app openTerminal failed: %{public}@", log: log, type: .error, err.description)
-        }
+        runAppleScript(script, label: "Terminal.app openTerminal")
     }
 
     func focusTerminalWindow(forPID pid: Int) -> Bool {
@@ -169,12 +165,6 @@ class AppleTerminal: TerminalAdapter {
         end tell
         return false
         """
-        let appleScript = NSAppleScript(source: script)
-        var errorDict: NSDictionary?
-        let result = appleScript?.executeAndReturnError(&errorDict)
-        if let err = errorDict {
-            os_log("Terminal.app focus failed: %{public}@", log: log, type: .error, err.description)
-        }
-        return result?.booleanValue ?? false
+        return runAppleScript(script, label: "Terminal.app focus")?.booleanValue ?? false
     }
 }
