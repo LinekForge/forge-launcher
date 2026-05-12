@@ -12,7 +12,6 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
 
     var allSessions: [Session] = []
     var activeSIDs: Set<String> = []
-    var sessionNames: [String: String] = [:]
     var starredSIDs: Set<String> = []
     var staleCount = 0
     var hubTags: [String: String] = [:]   // keyed by session ID prefix (8 chars), Hub 兼容 fallback
@@ -252,9 +251,6 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
         } else {
             let q = filter.lowercased()
             list = allSessions.filter { s in
-                // 搜的是实际显示给用户看的名字（含 Hub description / custom name / first-msg 优先级），
-                // 而不是只看 sessionNames——4/2 重构后 sessionNames 永远为空，用户给会话写的
-                // description 存在 hubDescs 里，必须走 displayName 才能命中。
                 let displayed = displayName(for: s).lowercased()
                 let firstMsg = s.display.lowercased()
                 if displayed.contains(q) || firstMsg.contains(q) || s.time.contains(q) {
@@ -274,8 +270,7 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
             for session in starred {
                 let isActive = activeSIDs.contains(session.sid)
                 let name = displayName(for: session)
-                let isBold = sessionNames[session.sid] != nil
-                displayItems.append(.session(session, isActive: isActive, displayName: name, isBold: isBold))
+                displayItems.append(.session(session, isActive: isActive, displayName: name))
             }
         }
 
@@ -288,8 +283,7 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
             }
             let isActive = activeSIDs.contains(session.sid)
             let name = displayName(for: session)
-            let isBold = sessionNames[session.sid] != nil
-            displayItems.append(.session(session, isActive: isActive, displayName: name, isBold: isBold))
+            displayItems.append(.session(session, isActive: isActive, displayName: name))
         }
     }
 
@@ -314,7 +308,7 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         if commandSelector == #selector(insertNewline(_:)) {
             for item in displayItems {
-                if case .session(let s, _, _, _) = item { onOpen?(s.sid); return true }
+                if case .session(let s, _, _) = item { onOpen?(s.sid); return true }
             }
             return true
         }
@@ -347,25 +341,13 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
             cell.textColor = .secondaryLabelColor
             return cell
 
-        case .session(let session, let isActive, let name, let isBold):
+        case .session(let session, let isActive, let name):
             let prefix = isActive ? "● " : "   "
             let text = "\(prefix)\(session.time)  \(name)"
             let cell = NSTextField(labelWithString: text)
             cell.lineBreakMode = .byTruncatingTail
-
-            if isActive && isBold {
-                cell.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-                cell.textColor = .systemGreen
-            } else if isActive {
-                cell.font = NSFont.systemFont(ofSize: 13)
-                cell.textColor = .systemGreen
-            } else if isBold {
-                cell.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-                cell.textColor = .labelColor
-            } else {
-                cell.font = NSFont.systemFont(ofSize: 13)
-                cell.textColor = .labelColor
-            }
+            cell.font = NSFont.systemFont(ofSize: 13)
+            cell.textColor = isActive ? .systemGreen : .labelColor
 
             return cell
         }
@@ -393,7 +375,7 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
     @objc func handleClick() {
         let row = tableView.clickedRow
         guard row >= 0, row < displayItems.count else { return }
-        if case .session(let session, _, _, _) = displayItems[row] {
+        if case .session(let session, _, _) = displayItems[row] {
             onOpen?(session.sid)
         }
     }
@@ -404,7 +386,7 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
         menu.removeAllItems()
         let row = tableView.clickedRow
         guard row >= 0, row < displayItems.count else { return }
-        if case .session(let session, _, _, _) = displayItems[row] {
+        if case .session(let session, _, _) = displayItems[row] {
             let renameItem = NSMenuItem(title: "📝 描述...", action: #selector(doRename(_:)), keyEquivalent: "")
             renameItem.target = self
             renameItem.representedObject = session.sid

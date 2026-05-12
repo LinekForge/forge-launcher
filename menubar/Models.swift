@@ -9,7 +9,7 @@ struct Session {
 
 enum DisplayItem {
     case header(String)
-    case session(Session, isActive: Bool, displayName: String, isBold: Bool)
+    case session(Session, isActive: Bool, displayName: String)
 }
 
 struct StaleSession {

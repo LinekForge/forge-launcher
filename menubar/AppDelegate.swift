@@ -113,7 +113,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     func syncDataToPopover() {
         popoverCtrl.allSessions = scanner.sessions
         popoverCtrl.activeSIDs = scanner.activeSIDs
-        popoverCtrl.sessionNames = [:]
         popoverCtrl.starredSIDs = store.stars
         popoverCtrl.staleCount = scanner.staleSessions.count
         popoverCtrl.hubTags = scanner.hubTags
