@@ -10,6 +10,31 @@ protocol TerminalAdapter {
     func focusTerminalWindow(forPID pid: Int) -> Bool
 }
 
+// MARK: - Shared Helpers
+
+private func escapeForAppleScript(_ command: String) -> String {
+    command
+        .replacingOccurrences(of: "\\", with: "\\\\")
+        .replacingOccurrences(of: "\"", with: "\\\"")
+}
+
+/// PID → TTY name (e.g. "ttys003"). Returns nil if PID not found or ps fails.
+private func ttyForPID(_ pid: Int) -> String? {
+    let process = Process()
+    let pipe = Pipe()
+    process.executableURL = URL(fileURLWithPath: "/bin/ps")
+    process.arguments = ["-o", "tty=", "-p", "\(pid)"]
+    process.standardOutput = pipe
+    process.standardError = FileHandle.nullDevice
+    do { try process.run(); process.waitUntilExit() } catch {
+        os_log("ps failed for PID %d: %{public}@", log: log, type: .error, pid, error.localizedDescription)
+        return nil
+    }
+    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+    let name = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return name.isEmpty ? nil : name
+}
+
 // MARK: - Dynamic Terminal (auto-detect on every call)
 
 /// 每次 openTerminal / focusTerminalWindow 时动态检测当前跑着什么终端。
@@ -48,10 +73,7 @@ class DynamicTerminal: TerminalAdapter {
 class GhosttyTerminal: TerminalAdapter {
 
     func openTerminal(_ command: String) {
-        let escaped = command
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-
+        let escaped = escapeForAppleScript(command)
         let script = """
         tell application "Ghostty"
             activate
@@ -75,23 +97,8 @@ class GhosttyTerminal: TerminalAdapter {
     }
 
     func focusTerminalWindow(forPID pid: Int) -> Bool {
-        // Step 1: PID → TTY
-        let ttyProcess = Process()
-        let ttyPipe = Pipe()
-        ttyProcess.executableURL = URL(fileURLWithPath: "/bin/ps")
-        ttyProcess.arguments = ["-o", "tty=", "-p", "\(pid)"]
-        ttyProcess.standardOutput = ttyPipe
-        ttyProcess.standardError = FileHandle.nullDevice
-        do { try ttyProcess.run(); ttyProcess.waitUntilExit() } catch {
-            os_log("ps failed for PID %d: %{public}@", log: log, type: .error, pid, error.localizedDescription)
-            return false
-        }
+        guard let ttyName = ttyForPID(pid) else { return false }
 
-        let ttyData = ttyPipe.fileHandleForReading.readDataToEndOfFile()
-        let ttyName = String(data: ttyData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if ttyName.isEmpty { return false }
-
-        // Step 2: TTY → terminal ID (read breadcrumb file)
         let ttyKey = "/dev/\(ttyName)".replacingOccurrences(of: "/", with: "_")
         let breadcrumbFile = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude/ghostty-ttys/\(ttyKey)")
@@ -102,7 +109,6 @@ class GhosttyTerminal: TerminalAdapter {
             return false
         }
 
-        // Step 3: terminal ID → focus
         let script = """
         tell application "Ghostty"
             repeat with t in every terminal
@@ -126,15 +132,10 @@ class GhosttyTerminal: TerminalAdapter {
 
 // MARK: - Terminal.app Implementation
 
-/// macOS 原生 Terminal.app——每台 Mac 都有，做 fallback 完美。
-/// 比 Ghostty 简单：Terminal.app 原生暴露每个 tab 的 TTY，不需要 breadcrumb 桥接。
 class AppleTerminal: TerminalAdapter {
 
     func openTerminal(_ command: String) {
-        let escaped = command
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-
+        let escaped = escapeForAppleScript(command)
         let script = """
         tell application "Terminal"
             activate
@@ -150,23 +151,8 @@ class AppleTerminal: TerminalAdapter {
     }
 
     func focusTerminalWindow(forPID pid: Int) -> Bool {
-        // Step 1: PID → TTY
-        let ttyProcess = Process()
-        let ttyPipe = Pipe()
-        ttyProcess.executableURL = URL(fileURLWithPath: "/bin/ps")
-        ttyProcess.arguments = ["-o", "tty=", "-p", "\(pid)"]
-        ttyProcess.standardOutput = ttyPipe
-        ttyProcess.standardError = FileHandle.nullDevice
-        do { try ttyProcess.run(); ttyProcess.waitUntilExit() } catch {
-            os_log("ps failed for PID %d: %{public}@", log: log, type: .error, pid, error.localizedDescription)
-            return false
-        }
+        guard let ttyName = ttyForPID(pid) else { return false }
 
-        let ttyData = ttyPipe.fileHandleForReading.readDataToEndOfFile()
-        let ttyName = String(data: ttyData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if ttyName.isEmpty { return false }
-
-        // Step 2: TTY → Terminal.app tab（原生暴露 tty，不需要 breadcrumb）
         let fullTTY = "/dev/\(ttyName)"
         let script = """
         tell application "Terminal"
