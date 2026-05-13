@@ -107,13 +107,13 @@ open Forge Launcher.app
 ```
 menubar/
 ├── main.swift                 入口（.accessory，不占 Dock）
-├── Models.swift               数据结构（Session / DisplayItem / StaleSession）
-├── AppDelegate.swift          薄调度层（~230 行，串联所有模块）
+├── Models.swift               数据结构 + 共享 helper（toLatin / instanceIdSuffix）
+├── AppDelegate.swift          薄调度层（串联所有模块）
 ├── SessionScanner.swift       活跃检测 + 全量会话扫描
 ├── SessionStore.swift         置顶持久化
 ├── SessionDescriptionStore.swift  本地命名持久化（按完整 UUID 索引）
-├── TerminalAdapter.swift      终端抽象层（协议 + Ghostty 实现 + TTY breadcrumb）
-├── HubClient.swift            Hub HTTP + 文件 I/O（可选，Hub 不在自动降级）
+├── TerminalAdapter.swift      终端抽象层（协议 + Ghostty / Terminal.app 实现 + 动态检测）
+├── HubClient.swift            Hub HTTP + 文件 I/O（可选，Hub 不在自动降级）；共享 hubGet / postToHub
 ├── ChannelDialog.swift        Hub 相关弹窗 + 流程编排
 ├── HubExtension.swift         Hub 编排薄层（~52 行）
 ├── PopoverController.swift    UI（搜索、表格、右键菜单、拼音、Hub 健康）

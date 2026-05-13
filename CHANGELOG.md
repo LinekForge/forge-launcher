@@ -1,5 +1,19 @@
 # 变更日志
 
+## v0.1.1（2026-05-12）
+
+### Bug 修复
+- **#1** 终端动态检测——中途启动 Ghostty 无需重启 Launcher（`DynamicTerminal` wrapper）
+- **#2** 删除废弃的 `sessionNames` / `isBold` dead code
+- **#5** `SessionDescriptionStore` 每 30s 从磁盘重读，支持外部 hook 写入
+
+### 代码质量（#3 + simplify）
+- 提取共享 helper：`hubGet` / `postToHub` / `runAppleScript` / `toLatin` / `instanceIdSuffix` / `channelFlags`
+- 删除冗余 `scanner` 参数（`renameSession`）和 `refreshSessions` wrapper
+- `descStore.load()` 移到 scan completion（不在 star toggle 时触发）
+- `groupDateFormatter` 改 static（避免每行重建）
+- 修复 `self!` force-unwrap（crash vector）
+
 ## v0.1.0（2026-04-21）
 
 首次开源发布。
