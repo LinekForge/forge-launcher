@@ -1,5 +1,18 @@
 # 变更日志
 
+## v0.1.2（2026-05-17）
+
+### 新功能
+- **#7** 可配置默认工作目录——底栏「设置」选择，所有新建/恢复会话使用配置的目录
+- **#9** 启动前认证检查（opt-in）——设置里勾选后，启动会话前自动检查 `claude auth status`，未登录弹窗引导
+
+### 代码质量
+- 提取 `augmentedEnvironment()` 共享 PATH helper，SessionScanner 复用
+- 提取 `guardAuth()` / `showAuthAlert()` 共享 auth guard
+- shell 路径转义加固（无条件单引号包裹）
+- 配置文件写入后 chmod 600
+- 规范化二进制名和注释
+
 ## v0.1.1（2026-05-12）
 
 ### Bug 修复
