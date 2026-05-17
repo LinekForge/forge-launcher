@@ -26,6 +26,7 @@ swiftc \
     "$SCRIPT_DIR/menubar/TerminalAdapter.swift" \
     "$SCRIPT_DIR/menubar/SessionStore.swift" \
     "$SCRIPT_DIR/menubar/SessionDescriptionStore.swift" \
+    "$SCRIPT_DIR/menubar/ConfigStore.swift" \
     "$SCRIPT_DIR/menubar/SessionScanner.swift" \
     "$SCRIPT_DIR/menubar/HubClient.swift" \
     "$SCRIPT_DIR/menubar/ChannelDialog.swift" \
@@ -33,7 +34,7 @@ swiftc \
     "$SCRIPT_DIR/menubar/PopoverController.swift" \
     "$SCRIPT_DIR/menubar/AppDelegate.swift" \
     "$SCRIPT_DIR/menubar/main.swift" \
-    -o "$MENU_APP/Contents/MacOS/XiaoFu" \
+    -o "$MENU_APP/Contents/MacOS/ForgeLauncher" \
     -framework Cocoa \
     -target arm64-apple-macos13.0 \
     -suppress-warnings

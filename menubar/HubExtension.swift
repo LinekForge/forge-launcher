@@ -1,13 +1,7 @@
 import Cocoa
 
 /// Hub 编排层——薄 adapter，把 AppDelegate 的调用委托给 HubClient（I/O）和 ChannelDialog（UI）。
-///
-/// 拆分背景：2026-04-19 为开源准备，把原来 511 行的 HubExtension 按"I/O vs UI"分成三文件。
 /// AppDelegate 调用接口保持不变，本层只做 forwarding。
-///
-/// 2026-04-19 晚重构：rename / resume 流程加入 SessionDescriptionStore——description/tag
-/// 的 source of truth 从 Hub 搬回启动器本地。详见 `SessionDescriptionStore.swift` 头注释
-/// 和心智模型"启动器 own 名字、Hub 是消费者"小节。
 class HubExtension {
     let client: HubClient
     let dialog: ChannelDialog
@@ -20,9 +14,9 @@ class HubExtension {
     /// 曾在线现在离线 = Hub 挂了，显示警告给用户
     var isHubEverOnline: Bool { client.isHubEverOnline }
 
-    init(terminal: TerminalAdapter, scanner: SessionScanner, descStore: SessionDescriptionStore) {
+    init(terminal: TerminalAdapter, scanner: SessionScanner, descStore: SessionDescriptionStore, config: ConfigStore) {
         self.client = HubClient(scanner: scanner)
-        self.dialog = ChannelDialog(client: self.client, terminal: terminal, scanner: scanner, descStore: descStore)
+        self.dialog = ChannelDialog(client: self.client, terminal: terminal, scanner: scanner, descStore: descStore, config: config)
     }
 
     // MARK: - Forwarding

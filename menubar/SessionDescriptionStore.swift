@@ -13,7 +13,7 @@ struct SessionDescription: Codable {
 
 /// 启动器 own 的会话名字本。
 ///
-/// 设计原则（2026-04-19 晚重构）：
+/// 设计原则：
 /// - **启动器是 description/tag 的 source of truth**，不依赖 Hub
 /// - 文件在 `~/.claude/状态/session-descriptions.json`，和 session-stars.json 同目录
 /// - key 是完整 sessionId（UUID）——永久稳定，天然规避 v2 死 PID gap

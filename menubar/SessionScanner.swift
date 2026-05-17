@@ -121,14 +121,7 @@ class SessionScanner {
             process.standardOutput = pipe
             process.standardError = FileHandle.nullDevice
 
-            var env = ProcessInfo.processInfo.environment
-            let extra = "/opt/homebrew/bin:/usr/local/bin"
-            if let existing = env["PATH"] {
-                env["PATH"] = "\(extra):\(existing)"
-            } else {
-                env["PATH"] = "\(extra):/usr/bin:/bin"
-            }
-            process.environment = env
+            process.environment = augmentedEnvironment()
 
             do {
                 try process.run()

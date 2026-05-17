@@ -10,14 +10,24 @@ class ChannelDialog {
     let terminal: TerminalAdapter
     let scanner: SessionScanner
     let descStore: SessionDescriptionStore
+    let config: ConfigStore
 
     private static let channelFlags = "--dangerously-load-development-channels server:hub server:engine"
 
-    init(client: HubClient, terminal: TerminalAdapter, scanner: SessionScanner, descStore: SessionDescriptionStore) {
+    private func guardAuth() -> Bool {
+        if config.authCheckEnabled && !isClaudeAuthenticated() {
+            showAuthAlert(terminal: terminal)
+            return false
+        }
+        return true
+    }
+
+    init(client: HubClient, terminal: TerminalAdapter, scanner: SessionScanner, descStore: SessionDescriptionStore, config: ConfigStore) {
         self.client = client
         self.terminal = terminal
         self.scanner = scanner
         self.descStore = descStore
+        self.config = config
     }
 
     // MARK: - Launch Channel
@@ -83,8 +93,9 @@ class ChannelDialog {
             history = preset.history
         }
 
+        guard guardAuth() else { return }
         client.writeSessionFile(tag: tag, description: desc, channels: subscribe, history: history)
-        terminal.openTerminal("cd ~ && claude \(Self.channelFlags)")
+        terminal.openTerminal("cd \(config.shellWorkingDir) && claude \(Self.channelFlags)")
     }
 
     // MARK: - Custom Launch
@@ -114,8 +125,9 @@ class ChannelDialog {
             }
         }
 
+        guard guardAuth() else { return }
         client.writeSessionFile(tag: tag, description: desc, channels: result.subscribe, history: result.history)
-        terminal.openTerminal("cd ~ && claude \(Self.channelFlags)")
+        terminal.openTerminal("cd \(config.shellWorkingDir) && claude \(Self.channelFlags)")
     }
 
     // MARK: - Resume Channel
@@ -148,8 +160,9 @@ class ChannelDialog {
             allowSavePreset: false
         ) else { return }
 
+        guard guardAuth() else { return }
         client.writeSessionFile(tag: tag, description: desc, channels: result.subscribe, history: result.history)
-        terminal.openTerminal("cd ~ && claude --resume \(sid) \(Self.channelFlags)")
+        terminal.openTerminal("cd \(config.shellWorkingDir) && claude --resume \(sid) \(Self.channelFlags)")
     }
 
     // MARK: - Hub Naming (tag)
@@ -192,7 +205,7 @@ class ChannelDialog {
 
     /// 右键任意 session 的"📝 描述..."入口。
     ///
-    /// 新架构（2026-04-19 晚）：启动器本地 store 是 source of truth，Hub 是可选下游。
+    /// 启动器本地 store 是 source of truth，Hub 是可选下游。
     /// - 写本地 store 成功 = 用户看到的反馈是真实的
     /// - Hub POST 是 best-effort（给 peer 模式会话的回复标识用），失败不 block 也不回退
     /// - 不再写 Hub own 的 identities 文件（那是 Hub 自己的 state，外部 writer 引发 race）

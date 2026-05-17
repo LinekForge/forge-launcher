@@ -15,6 +15,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     let scanner = SessionScanner()
     let store = SessionStore()
     let descStore = SessionDescriptionStore()
+    let config = ConfigStore()
     var hub: HubExtension?
 
     // MARK: - Launch
@@ -22,9 +23,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // 启动器 own 的会话名字本——加载 + 注入到 Hub 扩展（让 ChannelDialog 能读写）
         descStore.load()
+        config.load()
 
         // Hub (optional — enriches scanner with tags/descs)
-        hub = HubExtension(terminal: terminal, scanner: scanner, descStore: descStore)
+        hub = HubExtension(terminal: terminal, scanner: scanner, descStore: descStore, config: config)
         scanner.onEnrich = { [weak self] in self?.hub?.enrichScanResults() }
 
         // Status item
@@ -57,6 +59,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
         popoverCtrl.onRepair = { [weak self] in self?.repairStaleSessions() }
         popoverCtrl.onRefresh = { [weak self] in self?.scanAndSync() }
+        popoverCtrl.onSettings = { [weak self] in self?.showSettings() }
         popoverCtrl.onQuit = { NSApplication.shared.terminate(nil) }
         popoverCtrl.onViewAll = { [weak self] in self?.openAllSessions() }
         popoverCtrl.onStar = { [weak self] sid in self?.toggleStar(sid) }
@@ -144,29 +147,42 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     // MARK: - Core Actions
 
+    private func guardAuth() -> Bool {
+        if config.authCheckEnabled && !isClaudeAuthenticated() {
+            showAuthAlert(terminal: terminal)
+            return false
+        }
+        return true
+    }
+
     func launchNew() {
+        guard guardAuth() else { return }
         popover.performClose(nil)
-        terminal.openTerminal("cd ~ && claude")
+        terminal.openTerminal("cd \(config.shellWorkingDir) && claude")
     }
 
     func openSession(_ sid: String) {
+        if let pid = scanner.sessionPIDMap[sid] {
+            popover.performClose(nil)
+            _ = terminal.focusTerminalWindow(forPID: pid)
+            return
+        }
+        guard guardAuth() else { return }
         popover.performClose(nil)
-        if let pid = scanner.sessionPIDMap[sid], terminal.focusTerminalWindow(forPID: pid) { return }
 
-        // 把描述传给即将启动的 client（写进 next-session.json 让 Hub ready 时能拿到）。
-        // 优先级：启动器本地 store（权威） → Hub hubDescs（兼容历史）
         let sidPrefix = String(sid.prefix(8))
         let desc = descStore.description(sid) ?? scanner.hubDescs[sidPrefix] ?? ""
         if !desc.isEmpty {
             hub?.writeSessionFile(tag: "", description: desc, channels: [], history: [:])
         }
 
-        terminal.openTerminal("cd ~ && claude --resume \(sid)")
+        terminal.openTerminal("cd \(config.shellWorkingDir) && claude --resume \(sid)")
     }
 
     func openAllSessions() {
+        guard guardAuth() else { return }
         popover.performClose(nil)
-        terminal.openTerminal("cd ~ && claude --resume")
+        terminal.openTerminal("cd \(config.shellWorkingDir) && claude --resume")
     }
 
     func toggleStar(_ sid: String) {
@@ -215,6 +231,60 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         scanAndSync()
     }
 
+    func showSettings() {
+        let alert = NSAlert()
+        alert.messageText = "设置"
+        alert.addButton(withTitle: "确定")
+        alert.addButton(withTitle: "取消")
+
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 68))
+
+        let dirLabel = NSTextField(labelWithString: "默认工作目录：")
+        dirLabel.frame = NSRect(x: 0, y: 44, width: 100, height: 20)
+        dirLabel.font = NSFont.systemFont(ofSize: 12)
+        container.addSubview(dirLabel)
+
+        let dirField = NSTextField(frame: NSRect(x: 104, y: 42, width: 190, height: 22))
+        let expandedDir = (config.workingDir as NSString).expandingTildeInPath
+        dirField.stringValue = expandedDir
+        dirField.isEditable = false
+        dirField.font = NSFont.systemFont(ofSize: 12)
+        container.addSubview(dirField)
+
+        let browseBtn = NSButton(title: "选择…", target: nil, action: nil)
+        browseBtn.frame = NSRect(x: 298, y: 40, width: 60, height: 24)
+        browseBtn.bezelStyle = .rounded
+        browseBtn.controlSize = .small
+        container.addSubview(browseBtn)
+
+        let authCheck = NSButton(checkboxWithTitle: "启动前检查登录状态", target: nil, action: nil)
+        authCheck.frame = NSRect(x: 0, y: 12, width: 220, height: 18)
+        authCheck.state = config.authCheckEnabled ? .on : .off
+        container.addSubview(authCheck)
+
+        let authHint = NSTextField(labelWithString: "每次启动会话前检查认证，可能有 1-2 秒延迟")
+        authHint.frame = NSRect(x: 20, y: -4, width: 340, height: 14)
+        authHint.font = NSFont.systemFont(ofSize: 10)
+        authHint.textColor = .tertiaryLabelColor
+        container.addSubview(authHint)
+
+        alert.accessoryView = container
+
+        let helper = SettingsBrowseHelper(field: dirField)
+        browseBtn.target = helper
+        browseBtn.action = #selector(SettingsBrowseHelper.browse(_:))
+
+        let response = alert.runModal()
+        _ = helper
+
+        if response == .alertFirstButtonReturn {
+            let newDir = dirField.stringValue
+            if newDir != expandedDir { config.setWorkingDir(newDir) }
+            let newAuth = authCheck.state == .on
+            if newAuth != config.authCheckEnabled { config.setAuthCheckEnabled(newAuth) }
+        }
+    }
+
     func showChooseDialog(title: String, prompt: String, items: [String]) -> Int? {
         let alert = NSAlert()
         alert.messageText = title
@@ -232,4 +302,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         return nil
     }
 
+}
+
+private class SettingsBrowseHelper: NSObject {
+    let field: NSTextField
+    init(field: NSTextField) { self.field = field; super.init() }
+    @objc func browse(_ sender: Any) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = URL(fileURLWithPath: (field.stringValue as NSString).expandingTildeInPath)
+        if panel.runModal() == .OK, let url = panel.url {
+            field.stringValue = url.path
+        }
+    }
 }

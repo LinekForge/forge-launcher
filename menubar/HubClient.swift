@@ -81,7 +81,6 @@ class HubClient {
 
     /// 从 Hub /instances 和 identities 文件读取 tag/description，
     /// 通过 PID↔UUID 反向桥归一化到 UUID prefix key，写入 scanner.hubTags/hubDescs。
-    /// 详见心智模型"Hub instance ID 方案演进"小节。
     func enrichScanResults() {
         // Build reverse map: PID → session UUID prefix (8 chars)
         // Hub uses PID-based instance IDs (forge-<PID>), popover looks up by UUID prefix.

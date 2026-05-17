@@ -33,6 +33,7 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
     var onRefresh: (() -> Void)?
     var onQuit: (() -> Void)?
     var onViewAll: (() -> Void)?
+    var onSettings: (() -> Void)?
 
     override func loadView() {
         let container = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: 380, height: 500))
@@ -97,13 +98,14 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
         // Bottom bar
         refreshBtn = makeLink("↻ 刷新", #selector(doRefresh))
         let viewAllBtn = makeLink("查看全部", #selector(doViewAll))
+        let settingsBtn = makeLink("设置", #selector(doSettings))
         let quitBtn = makeLink("退出", #selector(doQuit))
         countLabel = NSTextField(labelWithString: "")
         countLabel.font = NSFont.systemFont(ofSize: 11)
         countLabel.textColor = .tertiaryLabelColor
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let bottomBar = NSStackView(views: [refreshBtn, viewAllBtn, spacer, countLabel, quitBtn])
+        let bottomBar = NSStackView(views: [refreshBtn, viewAllBtn, spacer, countLabel, settingsBtn, quitBtn])
         bottomBar.orientation = .horizontal; bottomBar.spacing = 12
         bottomBar.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(bottomBar)
@@ -476,5 +478,6 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
         refreshBtn.isEnabled = true
     }
     @objc func doViewAll() { onViewAll?() }
+    @objc func doSettings() { onSettings?() }
     @objc func doQuit() { onQuit?() }
 }
