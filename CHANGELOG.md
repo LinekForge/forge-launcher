@@ -1,16 +1,29 @@
 # 变更日志
 
-## v0.1.2（2026-05-17）
+## v0.1.2（2026-05-19）
 
 ### 新功能
 - **#7** 可配置默认工作目录——底栏「设置」选择，所有新建/恢复会话使用配置的目录
 - **#9** 启动前认证检查（opt-in）——设置里勾选后，启动会话前自动检查 `claude auth status`，未登录弹窗引导
 
+### 架构
+- 拆分 `Models.swift` → `Models`（数据类型）+ `Utilities`（共享 helper）+ `AuthGuard`（认证逻辑）
+- 14 个 Swift 文件，约 2100 行
+
+### 安全与健壮性
+- 所有持久化文件统一 chmod 600
+- session ID 拼入 shell 前校验 UUID 格式
+- Ghostty 窗口聚焦的 termID 增加 AppleScript 转义
+- `SessionDescriptionStore` decode 失败时不覆盖内存数据（防数据丢失）
+- 配置文件损坏时 os_log 提示（不再静默 fallback）
+
+### 性能
+- Hub 离线时退避 3 个周期（~90s），不再每 30s 白等 curl 超时
+- `postToHub` 后台等待进程结束，防孤儿进程
+
 ### 代码质量
-- 提取 `augmentedEnvironment()` 共享 PATH helper，SessionScanner 复用
-- 提取 `guardAuth()` / `showAuthAlert()` 共享 auth guard
+- 提取 `augmentedEnvironment()` / `isValidUUID()` / `guardAuth()` / `showAuthAlert()` 共享 helper
 - shell 路径转义加固（无条件单引号包裹）
-- 配置文件写入后 chmod 600
 - 规范化二进制名和注释
 
 ## v0.1.1（2026-05-12）
