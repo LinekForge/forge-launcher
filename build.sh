@@ -23,6 +23,8 @@ echo -n "APPL????" > "$MENU_APP/Contents/PkgInfo"
 # 编译 Swift（多文件）
 swiftc \
     "$SCRIPT_DIR/menubar/Models.swift" \
+    "$SCRIPT_DIR/menubar/Utilities.swift" \
+    "$SCRIPT_DIR/menubar/AuthGuard.swift" \
     "$SCRIPT_DIR/menubar/TerminalAdapter.swift" \
     "$SCRIPT_DIR/menubar/SessionStore.swift" \
     "$SCRIPT_DIR/menubar/SessionDescriptionStore.swift" \

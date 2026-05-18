@@ -43,8 +43,7 @@ class SessionDescriptionStore {
             os_log("load: 读到 %d 条", log: log, type: .info, entries.count)
             return
         }
-        os_log("load: decode 失败，用空状态", log: log, type: .error)
-        entries = [:]
+        os_log("load: decode 失败，保留内存中已有 %d 条，不覆盖", log: log, type: .error, entries.count)
     }
 
     @discardableResult
@@ -58,6 +57,7 @@ class SessionDescriptionStore {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(entries)
             try data.write(to: file, options: .atomic)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
             return true
         } catch {
             os_log("SessionDescriptionStore save 失败: %{public}@", log: log, type: .error, error.localizedDescription)

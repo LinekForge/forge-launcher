@@ -109,7 +109,9 @@ open Forge Launcher.app
 ```
 menubar/
 ├── main.swift                 入口（.accessory，不占 Dock）
-├── Models.swift               数据结构 + 共享 helper（toLatin / instanceIdSuffix / augmentedEnvironment / isClaudeAuthenticated）
+├── Models.swift               数据结构（Session / DisplayItem / StaleSession）
+├── Utilities.swift            共享 helper（toLatin / instanceIdSuffix / augmentedEnvironment / isValidUUID）
+├── AuthGuard.swift            认证检查 + 弹窗（isClaudeAuthenticated / showAuthAlert）
 ├── AppDelegate.swift          薄调度层（串联所有模块 + 设置面板）
 ├── SessionScanner.swift       活跃检测 + 全量会话扫描
 ├── SessionStore.swift         置顶持久化
@@ -127,7 +129,7 @@ menubar/
 shared/
 └── scan-sessions.py           扫描 ~/.claude/projects/*/*.jsonl，提取首条用户消息
 
-build.sh                       一键编译（quit → swiftc 11 文件 → codesign → 部署脚本）
+build.sh                       一键编译（quit → swiftc 14 文件 → codesign → 部署脚本）
 ```
 
 ### 会话命名：启动器自己管，Hub 是可选下游

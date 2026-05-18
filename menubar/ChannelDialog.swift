@@ -137,6 +137,7 @@ class ChannelDialog {
     /// - channels 仍从 Hub identities 拿（channels 是 Hub 业务，Hub own）
     /// - 弹对话框让用户调整订阅和历史条数，然后 `claude --resume <sid> --dangerously-load-*`
     func resume(sid: String) {
+        guard isValidUUID(sid) else { return }
         let sidPrefix = String(sid.prefix(8))
         // Hub identities 里的条目——主要为了拿 channels（历史兼容也能给 tag/desc 兜底）
         let hubSaved = client.lookupSavedIdentity(sidPrefix: sidPrefix)

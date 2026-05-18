@@ -162,6 +162,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     func openSession(_ sid: String) {
+        guard isValidUUID(sid) else { return }
         if let pid = scanner.sessionPIDMap[sid] {
             popover.performClose(nil)
             _ = terminal.focusTerminalWindow(forPID: pid)

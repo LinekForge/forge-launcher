@@ -22,6 +22,8 @@ class HubClient {
     /// 默认 "forge-"，Hub 在线后更新为实际值。
     private(set) var instancePrefix: String = "forge-"
 
+    private var hubOfflineBackoff: Int = 0
+
     // MARK: - Types
 
     struct ChannelMeta {
@@ -92,7 +94,10 @@ class HubClient {
 
         // Fetch tags/descriptions from Hub API — 同时更新 isHubOnline 状态
         let online: Bool
-        if let json = hubGet("/instances") {
+        if hubOfflineBackoff > 0 {
+            hubOfflineBackoff -= 1
+            online = false
+        } else if let json = hubGet("/instances") {
             online = true
             if let instances = json["instances"] as? [[String: Any]] {
                 // 从第一个 id 学 Hub 的 instance 前缀
@@ -114,9 +119,13 @@ class HubClient {
             }
         } else {
             online = false
+            hubOfflineBackoff = 3
         }
         isHubOnline = online
-        if online { isHubEverOnline = true }
+        if online {
+            isHubEverOnline = true
+            hubOfflineBackoff = 0
+        }
 
         // Also read offline persistence
         if let data = try? Data(contentsOf: Self.identitiesFile),
@@ -245,7 +254,10 @@ class HubClient {
                           "-d", String(data: json, encoding: .utf8) ?? "{}"]
         task.standardOutput = FileHandle.nullDevice
         task.standardError = FileHandle.nullDevice
-        do { try task.run() } catch {
+        do {
+            try task.run()
+            DispatchQueue.global().async { task.waitUntilExit() }
+        } catch {
             os_log("POST %{public}@ failed: %{public}@", log: log, type: .error, path, error.localizedDescription)
         }
     }

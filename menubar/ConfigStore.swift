@@ -11,8 +11,11 @@ class ConfigStore {
     private(set) var authCheckEnabled: Bool = false
 
     func load() {
-        guard let data = try? Data(contentsOf: file),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+        guard let data = try? Data(contentsOf: file) else { return }
+        guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            os_log("load: JSON 格式损坏，使用默认配置。文件: %{public}@", log: log, type: .error, file.path)
+            return
+        }
         if let dir = obj["defaultWorkDir"] as? String, !dir.isEmpty {
             let expanded = (dir as NSString).expandingTildeInPath
             var isDir: ObjCBool = false

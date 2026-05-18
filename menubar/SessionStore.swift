@@ -24,6 +24,7 @@ class SessionStore {
         do {
             let data = try JSONSerialization.data(withJSONObject: Array(stars).sorted(), options: [.prettyPrinted])
             try data.write(to: starsFile, options: .atomic)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: starsFile.path)
         } catch {
             os_log("saveStars failed: %{public}@", log: log, type: .error, error.localizedDescription)
         }
