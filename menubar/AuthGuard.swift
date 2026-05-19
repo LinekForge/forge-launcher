@@ -28,6 +28,7 @@ func isClaudeAuthenticated(timeoutSeconds: Double = 3) -> Bool {
     process.terminationHandler = { _ in semaphore.signal() }
     if semaphore.wait(timeout: .now() + timeoutSeconds) == .timedOut {
         process.terminate()
+        pipeHandle.closeFile()
         process.waitUntilExit()
         os_log("auth check timed out, assuming authenticated", log: authLog, type: .info)
         return true

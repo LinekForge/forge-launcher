@@ -39,7 +39,7 @@ for f in glob.glob(os.path.join(base, "*", "*.jsonl")):
                                     break
                         elif isinstance(content, str):
                             text = content.strip()
-                        text = re.sub(r"^(/\S+\s+)+", "", text)
+                        text = re.sub(r"^(/[a-z][-a-z]*\s+)+", "", text)
                         if text.startswith("<") or len(text) < 3:
                             continue
                         text = text.replace("\n", " ").replace("\r", " ")
