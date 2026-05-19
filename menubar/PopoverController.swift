@@ -193,9 +193,13 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
 
         // description 优先级：启动器本地 store（权威，按完整 sessionId 索引）→ Hub 兼容 fallback → first-msg
         if let stored = sessionDescs[session.sid]?.description, !stored.isEmpty {
-            base = "【\(stored)】"
+            let clean = stored.hasPrefix("【") && stored.hasSuffix("】")
+                ? String(stored.dropFirst().dropLast()) : stored
+            base = "【\(clean)】"
         } else if let desc = hubDescs[sidPrefix] {
-            base = "【\(desc)】"
+            let clean = desc.hasPrefix("【") && desc.hasSuffix("】")
+                ? String(desc.dropFirst().dropLast()) : desc
+            base = "【\(clean)】"
         } else {
             base = session.display
         }

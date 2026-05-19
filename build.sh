@@ -7,13 +7,14 @@ ICON_ICNS="$SCRIPT_DIR/menubar/AppIcon.icns"
 
 echo "=== 编译Forge Launcher ==="
 
-# 退出旧的
-osascript -e 'tell application "Forge Launcher" to quit' 2>/dev/null || true
-sleep 1
+# 退出旧的（未运行时跳过，避免 osascript 意外启动 app）
+if pgrep -xq "ForgeLauncher"; then
+    osascript -e 'tell application "Forge Launcher" to quit' 2>/dev/null || true
+    sleep 1
+fi
 
 # 构建 .app bundle
 rm -rf "$MENU_APP"
-xattr -cr "$SCRIPT_DIR/menubar/" 2>/dev/null || true
 mkdir -p "$MENU_APP/Contents/MacOS" "$MENU_APP/Contents/Resources"
 cp "$SCRIPT_DIR/menubar/Info.plist" "$MENU_APP/Contents/"
 cp "$SCRIPT_DIR/menubar/icon.png" "$MENU_APP/Contents/Resources/"
@@ -43,7 +44,7 @@ swiftc \
 
 # 签名
 xattr -cr "$MENU_APP" 2>/dev/null || true
-codesign --force --deep --sign - "$MENU_APP"
+codesign --force --sign - "$MENU_APP"
 
 echo "  ✓ Forge Launcher.app"
 
