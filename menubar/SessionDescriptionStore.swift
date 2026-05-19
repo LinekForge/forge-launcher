@@ -48,7 +48,7 @@ class SessionDescriptionStore {
 
     @discardableResult
     private func save() -> Bool {
-        // 确保目录存在（~/.claude/状态/ 在 v2 盘整后应该已存在，但防御一下）
+        // 确保目录存在（防御性创建）
         let dir = file.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
