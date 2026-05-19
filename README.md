@@ -58,7 +58,14 @@
 
   * Terminal.app 自动兜底（macOS 自带，不用额外装任何东西）
 
-### 编译
+### 下载即用
+
+从 [GitHub Releases](https://github.com/LinekForge/forge-launcher/releases/latest) 下载 zip，解压，双击 `Forge Launcher.app`。菜单栏右上角出现芙蓉花图标，点击即用。
+
+> 首次打开可能被 macOS Gatekeeper 拦截（ad-hoc 签名）。解决：右键点击 app →「打开」，或终端运行 `xattr -cr "Forge Launcher.app"`。
+
+<details>
+<summary><strong>或从源码编译</strong></summary>
 
 ```bash
 git clone https://github.com/LinekForge/forge-launcher.git
@@ -67,7 +74,7 @@ cd forge-launcher
 open "Forge Launcher.app"
 ```
 
-编译产物 `Forge Launcher.app` 出现在项目根目录。菜单栏右上角出现芙蓉花图标，点击即用。
+</details>
 
 ### 终端切换
 

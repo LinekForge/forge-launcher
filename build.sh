@@ -19,6 +19,7 @@ rm -rf "$BUILD_TMP"
 mkdir -p "$BUILD_TMP/Contents/MacOS" "$BUILD_TMP/Contents/Resources"
 cp "$SCRIPT_DIR/menubar/Info.plist" "$BUILD_TMP/Contents/"
 cp "$SCRIPT_DIR/menubar/icon.png" "$BUILD_TMP/Contents/Resources/"
+cp "$SCRIPT_DIR/shared/scan-sessions.py" "$BUILD_TMP/Contents/Resources/"
 [ -f "$ICON_ICNS" ] && cp "$ICON_ICNS" "$BUILD_TMP/Contents/Resources/"
 
 swiftc \

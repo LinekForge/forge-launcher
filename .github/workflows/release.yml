@@ -19,6 +19,7 @@ jobs:
           mkdir -p "$MENU_APP/Contents/MacOS" "$MENU_APP/Contents/Resources"
           cp menubar/Info.plist "$MENU_APP/Contents/"
           cp menubar/icon.png "$MENU_APP/Contents/Resources/"
+          cp shared/scan-sessions.py "$MENU_APP/Contents/Resources/"
           [ -f menubar/AppIcon.icns ] && cp menubar/AppIcon.icns "$MENU_APP/Contents/Resources/"
 
           swiftc \

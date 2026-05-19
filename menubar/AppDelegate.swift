@@ -21,7 +21,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     // MARK: - Launch
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // 启动器 own 的会话名字本——加载 + 注入到 Hub 扩展（让 ChannelDialog 能读写）
+        deployScanScript()
         descStore.load()
         config.load()
 
@@ -84,6 +84,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             self?.scanAndSync()
+        }
+    }
+
+    private func deployScanScript() {
+        guard let src = Bundle.main.path(forResource: "scan-sessions", ofType: "py") else { return }
+        let dst = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/自动化/scripts/scan-sessions.py")
+        let dstDir = dst.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: dstDir, withIntermediateDirectories: true)
+        if !FileManager.default.fileExists(atPath: dst.path) {
+            try? FileManager.default.copyItem(atPath: src, toPath: dst.path)
+        } else if let srcData = FileManager.default.contents(atPath: src),
+                  let dstData = FileManager.default.contents(atPath: dst.path),
+                  srcData != dstData {
+            try? FileManager.default.removeItem(at: dst)
+            try? FileManager.default.copyItem(atPath: src, toPath: dst.path)
         }
     }
 
