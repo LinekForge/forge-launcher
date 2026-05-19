@@ -36,7 +36,7 @@ class ChannelDialog {
 
         let alert = NSAlert()
         alert.messageText = "通道会话"
-        alert.informativeText = "描述：显示在回复标识里（如 Forge引擎）\n标签:微信里 @ 用的（如 P），留空自动分配"
+        alert.informativeText = "描述：显示在回复标识里（如 Forge引擎）\n标签：微信里 @ 用的（如 P），留空自动分配"
         alert.addButton(withTitle: "启动")
         alert.addButton(withTitle: "取消")
         alert.addButton(withTitle: "自定义...")
@@ -48,7 +48,7 @@ class ChannelDialog {
         container.addSubview(descInput)
 
         let tagInput = NSTextField(frame: NSRect(x: 0, y: 36, width: 300, height: 24))
-        tagInput.placeholderString = "@标签（如:P、A、日）"
+        tagInput.placeholderString = "@标签（如：P、A、日）"
         container.addSubview(tagInput)
 
         let presetLabel = NSTextField(labelWithString: "📡")
@@ -152,7 +152,7 @@ class ChannelDialog {
         let titleSuffix = desc.isEmpty ? "" : "：\(desc)"
 
         guard let result = promptChannelConfigDialog(
-            title: "Resume 通道会话\(titleSuffix)",
+            title: "恢复通道会话\(titleSuffix)",
             hubChannels: hubChannels,
             preselectedChannels: preselected,
             allowSavePreset: false

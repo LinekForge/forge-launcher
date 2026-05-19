@@ -21,6 +21,7 @@ func augmentedEnvironment() -> [String: String] {
     } else {
         env["PATH"] = "\(extra):/usr/bin:/bin"
     }
+    env["PYTHONIOENCODING"] = "utf-8"
     return env
 }
 
