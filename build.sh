@@ -57,7 +57,7 @@ echo "  ✓ scan-sessions.py → ~/.claude/自动化/scripts/"
 
 echo ""
 echo "=== 完成 ==="
-echo "启动：open $MENU_APP"
+echo "启动：open \"$MENU_APP\""
 echo ""
 if [ -d "/Applications/Ghostty.app" ]; then
     echo "💡 终端：检测到 Ghostty，启动后自动使用 Ghostty。"

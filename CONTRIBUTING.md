@@ -16,8 +16,8 @@ open "Forge Launcher.app"
 ## 改代码
 
 1. 改 `menubar/` 下的 Swift 文件
-2. 跑 `./build.sh` 编译 + 重启
-3. build.sh 会先退出旧 app，编完后手动 `open "Forge Launcher.app"` 启动
+2. 跑 `./build.sh`（自动退出旧 app + 编译）
+3. 手动 `open "Forge Launcher.app"` 启动
 
 没有 Xcode 项目——全靠 `swiftc` 直接编译。注意 `swiftc -O` 在 8GB 内存的机器上会卡死，build.sh 故意不带优化。
 
