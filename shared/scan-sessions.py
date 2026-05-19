@@ -44,7 +44,7 @@ for f in glob.glob(os.path.join(base, "*", "*.jsonl")):
                             continue
                         text = text.replace("\n", " ").replace("\r", " ")
                         first_msg = text[:50]
-                except:
+                except Exception:
                     pass
         if skip:
             continue
@@ -60,7 +60,7 @@ for f in glob.glob(os.path.join(base, "*", "*.jsonl")):
                 "first_msg": first_msg,
             }
         )
-    except:
+    except Exception:
         pass
 
 sessions.sort(key=lambda x: x["mtime"], reverse=True)

@@ -7,10 +7,9 @@ class SessionScanner {
     var sessions: [Session] = []
     var activeSIDs: Set<String> = []
     var sessionPIDMap: [String: Int] = [:]
-    var allActivePIDs: [Int] = []
     var staleSessions: [StaleSession] = []
     var hubTags: [String: String] = [:]   // keyed by session ID prefix (8 chars)
-    var hubDescs: [String: String] = [:]  // keyed by session ID prefix (8 chars)
+    var hubDescs: [String: String] = [:]
     var isScanning = false
 
     /// Called after core scan completes. HubExtension registers this to inject tags/descs.
@@ -77,11 +76,9 @@ class SessionScanner {
 
         activeSIDs.removeAll()
         sessionPIDMap.removeAll()
-        allActivePIDs.removeAll()
         for entry in goodEntries {
             activeSIDs.insert(entry.sid)
             sessionPIDMap[entry.sid] = entry.pid
-            allActivePIDs.append(entry.pid)
         }
 
         // Hub enrichment (tags/descs) — injected by HubExtension if available

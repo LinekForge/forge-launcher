@@ -67,10 +67,6 @@ class SessionDescriptionStore {
 
     // MARK: - Get / Set
 
-    func get(_ sid: String) -> SessionDescription? {
-        return entries[sid]
-    }
-
     func description(_ sid: String) -> String? {
         let s = entries[sid]?.description ?? ""
         return s.isEmpty ? nil : s

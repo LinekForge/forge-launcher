@@ -1,4 +1,4 @@
-import Cocoa
+import Foundation
 import os
 
 private let log = OSLog(subsystem: "com.linekforge.forge-launcher", category: "HubClient")
@@ -262,16 +262,7 @@ class HubClient {
         }
     }
 
-    /// 同步更新 identities 文件的 offline 副本。API 成功后调——保证 Hub 重启后状态不丢。
-    func updateIdentityDescription(instanceId: String, description: String) {
-        guard let data = try? Data(contentsOf: Self.identitiesFile),
-              var all = try? JSONSerialization.jsonObject(with: data) as? [String: [String: Any]] else { return }
-        if all[instanceId] == nil { all[instanceId] = [:] }
-        all[instanceId]?["description"] = description
-        if let jsonData = try? JSONSerialization.data(withJSONObject: all, options: [.prettyPrinted]) {
-            try? jsonData.write(to: Self.identitiesFile, options: .atomic)
-        }
-    }
+
 
     // MARK: - Identities Lookup (for resume)
 
