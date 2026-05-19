@@ -1,7 +1,4 @@
 import Cocoa
-import os
-
-private let log = OSLog(subsystem: "com.linekforge.forge-launcher", category: "ChannelDialog")
 
 /// 所有 NSAlert 弹窗 + flow orchestration（用户交互 → client API/文件 → terminal 启动）。
 /// 持有 HubClient / TerminalAdapter / SessionScanner 引用——每个 method 完成一个完整的用户动作。

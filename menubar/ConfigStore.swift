@@ -11,7 +11,12 @@ class ConfigStore {
     private(set) var authCheckEnabled: Bool = false
 
     func load() {
-        guard let data = try? Data(contentsOf: file) else { return }
+        guard let data = try? Data(contentsOf: file) else {
+            if FileManager.default.fileExists(atPath: file.path) {
+                os_log("load: 配置文件存在但无法读取: %{public}@", log: log, type: .error, file.path)
+            }
+            return
+        }
         guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             os_log("load: JSON 格式损坏，使用默认配置。文件: %{public}@", log: log, type: .error, file.path)
             return

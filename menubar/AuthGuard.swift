@@ -15,7 +15,7 @@ func isClaudeAuthenticated(timeoutSeconds: Double = 3) -> Bool {
     do {
         try process.run()
     } catch {
-        os_log("auth check failed to start: %{public}@", log: authLog, type: .info, error.localizedDescription)
+        os_log("auth check failed to start: %{public}@", log: authLog, type: .error, error.localizedDescription)
         return true
     }
 
