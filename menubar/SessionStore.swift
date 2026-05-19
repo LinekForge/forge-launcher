@@ -3,7 +3,7 @@ import os
 
 private let log = OSLog(subsystem: "com.linekforge.forge-launcher", category: "Store")
 
-class SessionStore {
+final class SessionStore {
     private let starsFile = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent(".claude/状态/session-stars.json")
 
@@ -20,8 +20,9 @@ class SessionStore {
         }
     }
 
-    func saveStars() {
+    private func saveStars() {
         do {
+            try FileManager.default.createDirectory(at: starsFile.deletingLastPathComponent(), withIntermediateDirectories: true)
             let data = try JSONSerialization.data(withJSONObject: Array(stars).sorted(), options: [.prettyPrinted])
             try data.write(to: starsFile, options: .atomic)
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: starsFile.path)

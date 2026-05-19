@@ -7,7 +7,7 @@ private let log = OSLog(subsystem: "com.linekforge.forge-launcher", category: "H
 ///
 /// Hub 离线时所有方法安全降级：HTTP 超时返空，文件读失败返空，不抛。
 /// `isHubOnline` 由 `enrichScanResults` 更新，popover 据此降级通道按钮。
-class HubClient {
+final class HubClient {
     let scanner: SessionScanner
 
     /// Hub 当前是否可达。每次 `enrichScanResults` 更新——curl /instances
@@ -22,6 +22,7 @@ class HubClient {
     /// 默认 "forge-"，Hub 在线后更新为实际值。
     private(set) var instancePrefix: String = "forge-"
 
+    /// 离线后跳过 N 个扫描周期（N × 30s ≈ 90s），避免每 30s 白等 curl 超时
     private var hubOfflineBackoff: Int = 0
 
     // MARK: - Types
@@ -40,8 +41,8 @@ class HubClient {
 
     // MARK: - Constants
 
-    static let defaultChannels = ["wechat", "telegram", "imessage", "feishu"]
-    static let defaultDisplayNames: [String: String] = [
+    private static let defaultChannels = ["wechat", "telegram", "imessage", "feishu"]
+    private static let defaultDisplayNames: [String: String] = [
         "wechat": "微信", "telegram": "Telegram", "imessage": "iMessage", "feishu": "飞书"
     ]
     static let presetsFile = FileManager.default.homeDirectoryForCurrentUser
@@ -69,9 +70,9 @@ class HubClient {
         task.standardError = FileHandle.nullDevice
         do {
             try task.run()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
             task.waitUntilExit()
             guard task.terminationStatus == 0 else { return nil }
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
             return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         } catch {
             os_log("Hub GET %{public}@ failed: %{public}@", log: log, type: .info, path, error.localizedDescription)
@@ -102,7 +103,7 @@ class HubClient {
             if let instances = json["instances"] as? [[String: Any]] {
                 // 从第一个 id 学 Hub 的 instance 前缀
                 if let firstId = instances.first?["id"] as? String,
-                   let dashIdx = firstId.firstIndex(of: "-") {
+                   let dashIdx = firstId.lastIndex(of: "-") {
                     instancePrefix = String(firstId[...dashIdx])
                 }
                 for inst in instances {
@@ -127,7 +128,6 @@ class HubClient {
             hubOfflineBackoff = 0
         }
 
-        // Also read offline persistence
         if let data = try? Data(contentsOf: Self.identitiesFile),
            let all = try? JSONSerialization.jsonObject(with: data) as? [String: [String: Any]] {
             for (key, val) in all {
@@ -159,7 +159,7 @@ class HubClient {
         }
     }
 
-    func getUsedTags() -> Set<String> {
+    private func getUsedTags() -> Set<String> {
         var tags = Set<String>()
         if let json = hubGet("/instances"),
            let instances = json["instances"] as? [[String: Any]] {
@@ -193,6 +193,7 @@ class HubClient {
         do {
             let data = try JSONSerialization.data(withJSONObject: arr, options: [.prettyPrinted])
             try data.write(to: Self.presetsFile, options: .atomic)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: Self.presetsFile.path)
         } catch {
             os_log("savePreset failed: %{public}@", log: log, type: .error, error.localizedDescription)
         }
@@ -211,6 +212,7 @@ class HubClient {
         do {
             let data = try JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted])
             try data.write(to: Self.nextSessionFile, options: .atomic)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: Self.nextSessionFile.path)
         } catch {
             os_log("writeSessionFile failed: %{public}@", log: log, type: .error, error.localizedDescription)
         }
@@ -228,6 +230,10 @@ class HubClient {
 
         for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" {
             if !usedTags.contains(String(c)) { return String(c) }
+        }
+        for n in 2...9 {
+            let candidate = "\(initial)\(n)"
+            if !usedTags.contains(candidate) { return candidate }
         }
         return initial
     }
@@ -249,7 +255,7 @@ class HubClient {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/curl")
         let json = (try? JSONSerialization.data(withJSONObject: body)) ?? Data()
-        task.arguments = ["-s", "-X", "POST", "http://localhost:9900\(path)",
+        task.arguments = ["-s", "--connect-timeout", "2", "-X", "POST", "http://localhost:9900\(path)",
                           "-H", "Content-Type: application/json",
                           "-d", String(data: json, encoding: .utf8) ?? "{}"]
         task.standardOutput = FileHandle.nullDevice
@@ -261,8 +267,6 @@ class HubClient {
             os_log("POST %{public}@ failed: %{public}@", log: log, type: .error, path, error.localizedDescription)
         }
     }
-
-
 
     // MARK: - Identities Lookup (for resume)
 

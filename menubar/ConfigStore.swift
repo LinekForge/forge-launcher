@@ -3,7 +3,7 @@ import os
 
 private let log = OSLog(subsystem: "com.linekforge.forge-launcher", category: "Config")
 
-class ConfigStore {
+final class ConfigStore {
     private let file = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent(".claude/状态/forge-launcher-config.json")
 
@@ -26,6 +26,8 @@ class ConfigStore {
             var isDir: ObjCBool = false
             if FileManager.default.fileExists(atPath: expanded, isDirectory: &isDir), isDir.boolValue {
                 workingDir = dir
+            } else {
+                os_log("load: 配置的工作目录不存在，回退到默认: %{public}@", log: log, type: .info, expanded)
             }
         }
         if let auth = obj["authCheckEnabled"] as? Bool {

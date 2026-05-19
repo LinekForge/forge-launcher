@@ -8,16 +8,16 @@
 git clone https://github.com/LinekForge/forge-launcher.git
 cd forge-launcher
 ./build.sh
-open Forge Launcher.app
+open "Forge Launcher.app"
 ```
 
-依赖：macOS 13+、Xcode Command Line Tools、Python 3、[Ghostty](https://ghostty.org)、[Claude Code](https://claude.ai/code)。
+依赖：macOS 13+、Xcode Command Line Tools、Python 3、[Claude Code](https://claude.ai/code)。终端自动检测（推荐 [Ghostty](https://ghostty.org)，Terminal.app 自动兜底）。
 
 ## 改代码
 
 1. 改 `menubar/` 下的 Swift 文件
 2. 跑 `./build.sh` 编译 + 重启
-3. build.sh 会先退出旧 app，编完后需要手动 `open Forge Launcher.app`
+3. build.sh 会先退出旧 app，编完后手动 `open "Forge Launcher.app"` 启动
 
 没有 Xcode 项目——全靠 `swiftc` 直接编译。注意 `swiftc -O` 在 8GB 内存的机器上会卡死，build.sh 故意不带优化。
 

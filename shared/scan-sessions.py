@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """扫描 Claude Code 会话，输出格式（每行）：
-unix_timestamp␞HH:MM␞first_msg␞session_id
-分隔符 ␞ = \\x1e (Record Separator)
+unix_timestamp<RS>HH:MM<RS>first_msg<RS>session_id
+分隔符 <RS> = \\x1e (Record Separator)
 按 mtime 降序，供菜单栏 app 解析和分组。
 """
 import json, os, glob, datetime, re
@@ -14,7 +14,7 @@ for f in glob.glob(os.path.join(base, "*", "*.jsonl")):
         mtime = os.path.getmtime(f)
         size = os.path.getsize(f)
 
-        if size < 500:
+        if size < 500:  # 小于 500B 的 jsonl 通常只有初始化记录，没有实际对话
             continue
 
         first_msg = ""

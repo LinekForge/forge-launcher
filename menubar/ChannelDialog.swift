@@ -2,7 +2,7 @@ import Cocoa
 
 /// 所有 NSAlert 弹窗 + flow orchestration（用户交互 → client API/文件 → terminal 启动）。
 /// 持有 HubClient / TerminalAdapter / SessionScanner 引用——每个 method 完成一个完整的用户动作。
-class ChannelDialog {
+final class ChannelDialog {
     let client: HubClient
     let terminal: TerminalAdapter
     let scanner: SessionScanner
@@ -170,7 +170,10 @@ class ChannelDialog {
     /// tag 也走"启动器本地 store 为准 + best-effort 通知 Hub"模式（和 rename 一致）。
     /// tag 比 description 更 Hub-业务导向（微信 @ 路由直接依赖），但 UI 层的显示归属仍是启动器。
     func hubName(sid: String) {
-        guard let pid = scanner.sessionPIDMap[sid] else { return }
+        guard let pid = scanner.sessionPIDMap[sid] else {
+            NSSound.beep()
+            return
+        }
         let instanceId = "\(client.instancePrefix)\(pid)"
 
         let alert = NSAlert()
@@ -191,7 +194,14 @@ class ChannelDialog {
         if response == .alertFirstButtonReturn {
             let name = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
             // 1. 先写本地 store
-            descStore.setTag(sid, tag: name)
+            let ok = descStore.setTag(sid, tag: name)
+            if !ok {
+                let err = NSAlert()
+                err.messageText = "保存失败"
+                err.informativeText = "无法写入标签，查看文件权限。"
+                err.alertStyle = .warning
+                err.runModal()
+            }
             // 2. best-effort Hub（tag 不空才发——Hub 没有 "清除 tag" 的清晰语义）
             if !name.isEmpty {
                 client.setTag(instanceId: instanceId, tag: name)

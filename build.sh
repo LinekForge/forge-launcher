@@ -13,15 +13,14 @@ if pgrep -xq "ForgeLauncher"; then
     sleep 1
 fi
 
-# 构建 .app bundle
-rm -rf "$MENU_APP"
-mkdir -p "$MENU_APP/Contents/MacOS" "$MENU_APP/Contents/Resources"
-cp "$SCRIPT_DIR/menubar/Info.plist" "$MENU_APP/Contents/"
-cp "$SCRIPT_DIR/menubar/icon.png" "$MENU_APP/Contents/Resources/"
-[ -f "$ICON_ICNS" ] && cp "$ICON_ICNS" "$MENU_APP/Contents/Resources/"
-echo -n "APPL????" > "$MENU_APP/Contents/PkgInfo"
+# 构建到临时目录（编译失败时保留旧版）
+BUILD_TMP="$SCRIPT_DIR/.build-tmp"
+rm -rf "$BUILD_TMP"
+mkdir -p "$BUILD_TMP/Contents/MacOS" "$BUILD_TMP/Contents/Resources"
+cp "$SCRIPT_DIR/menubar/Info.plist" "$BUILD_TMP/Contents/"
+cp "$SCRIPT_DIR/menubar/icon.png" "$BUILD_TMP/Contents/Resources/"
+[ -f "$ICON_ICNS" ] && cp "$ICON_ICNS" "$BUILD_TMP/Contents/Resources/"
 
-# 编译 Swift（多文件）
 swiftc \
     "$SCRIPT_DIR/menubar/Models.swift" \
     "$SCRIPT_DIR/menubar/Utilities.swift" \
@@ -37,12 +36,14 @@ swiftc \
     "$SCRIPT_DIR/menubar/PopoverController.swift" \
     "$SCRIPT_DIR/menubar/AppDelegate.swift" \
     "$SCRIPT_DIR/menubar/main.swift" \
-    -o "$MENU_APP/Contents/MacOS/ForgeLauncher" \
+    -o "$BUILD_TMP/Contents/MacOS/ForgeLauncher" \
     -framework Cocoa \
     -target arm64-apple-macos13.0 \
     -suppress-warnings
 
-# 签名
+# 编译成功——替换旧版并签名
+rm -rf "$MENU_APP"
+mv "$BUILD_TMP" "$MENU_APP"
 xattr -cr "$MENU_APP" 2>/dev/null || true
 codesign --force --sign - "$MENU_APP"
 

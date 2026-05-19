@@ -3,14 +3,14 @@ import os
 
 private let log = OSLog(subsystem: "com.linekforge.forge-launcher", category: "Scanner")
 
-class SessionScanner {
-    var sessions: [Session] = []
-    var activeSIDs: Set<String> = []
-    var sessionPIDMap: [String: Int] = [:]
-    var staleSessions: [StaleSession] = []
-    var hubTags: [String: String] = [:]   // keyed by session ID prefix (8 chars)
+final class SessionScanner {
+    private(set) var sessions: [Session] = []
+    private(set) var activeSIDs: Set<String> = []
+    private(set) var sessionPIDMap: [String: Int] = [:]
+    private(set) var staleSessions: [StaleSession] = []
+    var hubTags: [String: String] = [:]
     var hubDescs: [String: String] = [:]
-    var isScanning = false
+    private(set) var isScanning = false
 
     /// Called after core scan completes. HubExtension registers this to inject tags/descs.
     var onEnrich: (() -> Void)?
@@ -63,12 +63,9 @@ class SessionScanner {
             }
         }
 
-        var staleEntries: [AliveEntry] = []
-        var goodEntries: [AliveEntry] = []
-        for entry in aliveEntries {
-            if allJsonlSIDs.contains(entry.sid) { goodEntries.append(entry) }
-            else { staleEntries.append(entry) }
-        }
+        let grouped = Dictionary(grouping: aliveEntries) { allJsonlSIDs.contains($0.sid) }
+        let goodEntries = grouped[true] ?? []
+        let staleEntries = grouped[false] ?? []
 
         staleSessions = staleEntries.map {
             StaleSession(file: $0.file, pid: $0.pid, staleSID: $0.sid, startedAt: $0.startedAt)
@@ -90,7 +87,10 @@ class SessionScanner {
     // MARK: - Session List Scanning
 
     func scanSessionsInBackground(completion: @escaping () -> Void) {
-        if isScanning { return }
+        if isScanning {
+            DispatchQueue.main.async { completion() }
+            return
+        }
         isScanning = true
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else {
@@ -122,7 +122,6 @@ class SessionScanner {
 
             do {
                 try process.run()
-                process.waitUntilExit()
             } catch {
                 os_log("scan-sessions.py failed: %{public}@", log: log, type: .error, error.localizedDescription)
                 DispatchQueue.main.async {
@@ -134,17 +133,13 @@ class SessionScanner {
             }
 
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
             let output = String(data: data, encoding: .utf8) ?? ""
 
-            var found: [Session] = []
-            for line in output.components(separatedBy: "\n") {
-                let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                if trimmed.isEmpty { continue }
-                let parts = trimmed.components(separatedBy: "\u{1E}")
-                if parts.count == 4 {
-                    let ts = TimeInterval(parts[0]) ?? 0
-                    found.append(Session(display: parts[2], sid: parts[3], timestamp: ts, time: parts[1]))
-                }
+            let found = output.components(separatedBy: "\n").compactMap { line -> Session? in
+                let parts = line.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: "\u{1E}")
+                guard parts.count >= 4 else { return nil }
+                return Session(display: parts[2], sid: parts[3], timestamp: TimeInterval(parts[0]) ?? 0, time: parts[1])
             }
 
             DispatchQueue.main.async {

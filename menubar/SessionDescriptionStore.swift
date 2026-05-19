@@ -24,7 +24,7 @@ struct SessionDescription: Codable {
 /// 和 Hub 的 `~/.forge-hub/state/_hub/instance-identities.json` 的区别：
 /// - identities 是 Hub own 的 peer 连接状态——包括 channels、isChannel、以及（历史上）description
 /// - 新架构下 identities 里的 description 作为兼容 fallback 保留，不再是权威
-class SessionDescriptionStore {
+final class SessionDescriptionStore {
     private let file = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent(".claude/状态/session-descriptions.json")
 
@@ -48,7 +48,6 @@ class SessionDescriptionStore {
 
     @discardableResult
     private func save() -> Bool {
-        // 确保目录存在（防御性创建）
         let dir = file.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
@@ -68,13 +67,13 @@ class SessionDescriptionStore {
     // MARK: - Get / Set
 
     func description(_ sid: String) -> String? {
-        let s = entries[sid]?.description ?? ""
-        return s.isEmpty ? nil : s
+        guard let s = entries[sid]?.description, !s.isEmpty else { return nil }
+        return s
     }
 
     func tag(_ sid: String) -> String? {
-        let s = entries[sid]?.tag ?? ""
-        return s.isEmpty ? nil : s
+        guard let s = entries[sid]?.tag, !s.isEmpty else { return nil }
+        return s
     }
 
     /// 设置 description，保留 tag。空字符串 = 清除 description。
@@ -122,7 +121,5 @@ class SessionDescriptionStore {
     // MARK: - Snapshot（给 popover 用的完整映射）
 
     /// 返回 `sid → SessionDescription` 的当前快照。用于 popover 每次 reload 时读取。
-    func snapshot() -> [String: SessionDescription] {
-        return entries
-    }
+    func snapshot() -> [String: SessionDescription] { entries }
 }

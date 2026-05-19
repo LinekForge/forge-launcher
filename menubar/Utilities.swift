@@ -9,8 +9,10 @@ func toLatin(_ s: String) -> String {
     return (mutable as String).lowercased()
 }
 
+/// Hub instance ID 格式为 `<prefix>-<PID>`（如 "forge-12345"），提取最后一个 `-` 之后的部分。
 func instanceIdSuffix(_ id: String) -> String {
-    id.split(separator: "-", maxSplits: 1).last.map(String.init) ?? id
+    guard let idx = id.lastIndex(of: "-") else { return id }
+    return String(id[id.index(after: idx)...])
 }
 
 func augmentedEnvironment() -> [String: String] {
@@ -27,11 +29,6 @@ func augmentedEnvironment() -> [String: String] {
 
 // MARK: - Validation
 
-private let uuidRegex = try! NSRegularExpression(
-    pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-)
-
 func isValidUUID(_ s: String) -> Bool {
-    let range = NSRange(s.startIndex..<s.endIndex, in: s)
-    return uuidRegex.firstMatch(in: s, range: range) != nil
+    UUID(uuidString: s) != nil
 }

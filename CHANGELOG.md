@@ -1,6 +1,6 @@
 # 变更日志
 
-## v0.1.2（2026-05-19）
+## v0.1.2 (2026-05-19)
 
 ### 新功能
 - **#7** 可配置默认工作目录——底栏「设置」选择，所有新建/恢复会话使用配置的目录
@@ -8,7 +8,7 @@
 
 ### 架构
 - 拆分 `Models.swift` → `Models`（数据类型）+ `Utilities`（共享 helper）+ `AuthGuard`（认证逻辑）
-- 14 个 Swift 文件，约 2100 行
+- 14 个 Swift 文件，约 2200 行
 
 ### 安全与健壮性
 - 所有持久化文件统一 chmod 600
@@ -21,12 +21,35 @@
 - Hub 离线时退避 3 个周期（~90s），不再每 30s 白等 curl 超时
 - `postToHub` 后台等待进程结束，防孤儿进程
 
+### Bug 修复
+- `openSession` 窗口聚焦失败时恢复 fallback 到 `claude --resume`（v0.1.2 首版引入的退化）
+- `suggestTag` A-Z 用完后 fallback 到数字后缀（不再返回冲突 tag）
+- `ttyForPID` 过滤无终端进程的 `??` 返回值
+- 扫描期间手动刷新不再被静默吞掉
+- Finder 工具栏重开时刷新数据（不再显示过期缓存）
+- `postToHub` 加 `--connect-timeout 2`（防 Hub 离线时线程挂起）
+- 搜索框 placeholder 提示支持拼音
+- 【】包裹的描述不再双层嵌套
+- README `open` 命令加引号（路径含空格）
+
 ### 代码质量
 - 提取 `augmentedEnvironment()` / `isValidUUID()` / `guardAuth()` / `showAuthAlert()` 共享 helper
 - shell 路径转义加固（无条件单引号包裹）
 - 规范化二进制名和注释
+- 删除 13 条纯 WHAT 注释
+- 右键菜单增加分隔线（编辑/操作/工具三组）
+- 所有非继承 class 标记 `final`
+- `saveStars()` 标记 `private`
+- 删除死代码（`allActivePIDs`、`get()`、`updateIdentityDescription()`）
+- 精简 import（Cocoa → Foundation）、修 Python `bare except`
+- `build.sh`：跳过未运行时的 quit、去掉多余 xattr 和废弃的 `--deep`、编译到临时目录（失败时保留旧版）
+- `applicationWillTerminate` 清理定时器与事件监听
+- `SessionScanner` 用 `compactMap` / `Dictionary(grouping:)` 替代手写循环
+- `isValidUUID` 用 `UUID(uuidString:)` 替代正则
+- 认证终止后 `waitUntilExit` 收 zombie 进程
+- 弹窗文案更口语化（"需要先登录"、"没有可用的会话"）
 
-## v0.1.1（2026-05-12）
+## v0.1.1 (2026-05-12)
 
 ### Bug 修复
 - **#1** 终端动态检测——中途启动 Ghostty 无需重启 Launcher（`DynamicTerminal` wrapper）
@@ -40,7 +63,7 @@
 - `groupDateFormatter` 改 static（避免每行重建）
 - 修复 `self!` force-unwrap（crash vector）
 
-## v0.1.0（2026-04-21）
+## v0.1.0 (2026-04-21)
 
 首次开源发布。
 

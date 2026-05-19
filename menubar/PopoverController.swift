@@ -41,14 +41,12 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
         container.blendingMode = .behindWindow
         container.state = .active
 
-        // Search field
         searchField = NSSearchField()
-        searchField.placeholderString = "搜索会话..."
+        searchField.placeholderString = "搜索会话（支持拼音）..."
         searchField.delegate = self
         searchField.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(searchField)
 
-        // Top buttons
         let newBtn = NSButton(title: "✦ 常规会话", target: self, action: #selector(doNew))
         newBtn.bezelStyle = .rounded; newBtn.controlSize = .small
         channelBtn = NSButton(title: "📡 通道会话", target: self, action: #selector(doNewChannel))
@@ -58,7 +56,6 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
         topBar.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(topBar)
 
-        // Warning (hidden when no stale)
         warningButton = NSButton(title: "", target: self, action: #selector(doRepair))
         warningButton.isBordered = false
         warningButton.alignment = .left
@@ -66,7 +63,6 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
         warningButton.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(warningButton)
 
-        // Table
         tableView = NSTableView()
         tableView.delegate = self
         tableView.dataSource = self
@@ -95,7 +91,6 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(scrollView)
 
-        // Bottom bar
         refreshBtn = makeLink("↻ 刷新", #selector(doRefresh))
         let viewAllBtn = makeLink("查看全部", #selector(doViewAll))
         let settingsBtn = makeLink("设置", #selector(doSettings))
@@ -110,7 +105,6 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
         bottomBar.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(bottomBar)
 
-        // Warning height
         warningHeight = warningButton.heightAnchor.constraint(equalToConstant: 0)
 
         NSLayoutConstraint.activate([
@@ -187,19 +181,21 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
         updateCount()
     }
 
+    /// 去掉已有的【】再统一加回来，避免双层括号。
+    private func bracketed(_ s: String) -> String {
+        let inner = (s.hasPrefix("【") && s.hasSuffix("】")) ? String(s.dropFirst().dropLast()) : s
+        return "【\(inner)】"
+    }
+
     private func displayName(for session: Session) -> String {
         var base: String
         let sidPrefix = String(session.sid.prefix(8))
 
         // description 优先级：启动器本地 store（权威，按完整 sessionId 索引）→ Hub 兼容 fallback → first-msg
         if let stored = sessionDescs[session.sid]?.description, !stored.isEmpty {
-            let clean = stored.hasPrefix("【") && stored.hasSuffix("】")
-                ? String(stored.dropFirst().dropLast()) : stored
-            base = "【\(clean)】"
+            base = bracketed(stored)
         } else if let desc = hubDescs[sidPrefix] {
-            let clean = desc.hasPrefix("【") && desc.hasSuffix("】")
-                ? String(desc.dropFirst().dropLast()) : desc
-            base = "【\(clean)】"
+            base = bracketed(desc)
         } else {
             base = session.display
         }
@@ -215,9 +211,7 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
     }
 
     private func updateCount() {
-        let sessionCount = displayItems.filter {
-            if case .session = $0 { return true }; return false
-        }.count
+        let sessionCount = displayItems.filter { if case .session = $0 { true } else { false } }.count
         let query = searchField?.stringValue ?? ""
         let countText: String
         if query.isEmpty {
@@ -264,7 +258,6 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
             }
         }
 
-        // Starred sessions first
         let starred = list.filter { starredSIDs.contains($0.sid) }
         let rest = list.filter { !starredSIDs.contains($0.sid) }
 
@@ -368,13 +361,11 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
     }
 
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
-        if case .header = displayItems[row] { return false }
-        return true
+        if case .session = displayItems[row] { true } else { false }
     }
 
     func tableView(_ tableView: NSTableView, isGroupRow row: Int) -> Bool {
-        if case .header = displayItems[row] { return true }
-        return false
+        if case .header = displayItems[row] { true } else { false }
     }
 
     // MARK: - Click
@@ -399,8 +390,10 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
             renameItem.representedObject = session.sid
             menu.addItem(renameItem)
 
+            let hubKnown = hubEverOnline || hubOnline   // 这台机是否装过/探测到过 Hub
+
             // 📡 标签（活跃会话） — Hub 在线才有意义。从未装过 Hub 的用户隐藏此项减少噪音
-            if activeSIDs.contains(session.sid) && (hubEverOnline || hubOnline) {
+            if activeSIDs.contains(session.sid) && hubKnown {
                 let hubItem = NSMenuItem(
                     title: hubOnline ? "📡 标签..." : "📡 标签... (Hub 离线)",
                     action: hubOnline ? #selector(doHubName(_:)) : nil,
@@ -411,6 +404,8 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
                 menu.addItem(hubItem)
             }
 
+            menu.addItem(NSMenuItem.separator())
+
             let isStarred = starredSIDs.contains(session.sid)
             let starTitle = isStarred ? "☆ 取消置顶" : "★ 置顶"
             let starItem = NSMenuItem(title: starTitle, action: #selector(doStar(_:)), keyEquivalent: "")
@@ -419,7 +414,7 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
             menu.addItem(starItem)
 
             // 📡 通道恢复（非活跃会话） — 同上，从未装过 Hub 的用户隐藏
-            if !activeSIDs.contains(session.sid) && (hubEverOnline || hubOnline) {
+            if !activeSIDs.contains(session.sid) && hubKnown {
                 let resumeChItem = NSMenuItem(
                     title: hubOnline ? "📡 通道恢复" : "📡 通道恢复 (Hub 离线)",
                     action: hubOnline ? #selector(doResumeChannel(_:)) : nil,

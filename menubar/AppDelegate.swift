@@ -25,11 +25,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         descStore.load()
         config.load()
 
-        // Hub (optional — enriches scanner with tags/descs)
         hub = HubExtension(terminal: terminal, scanner: scanner, descStore: descStore, config: config)
         scanner.onEnrich = { [weak self] in self?.hub?.enrichScanResults() }
 
-        // Status item
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
             if let iconPath = Bundle.main.path(forResource: "icon", ofType: "png"),
@@ -44,7 +42,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             button.target = self
         }
 
-        // Popover
         popoverCtrl = SessionPopoverController()
         popoverCtrl.onOpen = { [weak self] sid in self?.openSession(sid) }
         popoverCtrl.onNew = { [weak self] in self?.launchNew() }
@@ -70,7 +67,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.contentViewController = popoverCtrl
         popover.delegate = self
 
-        // Keyboard shortcuts
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self = self, self.popover.isShown else { return event }
             if event.modifierFlags.contains(.command) {
@@ -91,10 +87,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        refreshTimer?.invalidate()
+        if let monitor = eventMonitor { NSEvent.removeMonitor(monitor) }
+    }
+
     // MARK: - Popover
 
     @objc func togglePopover() {
-        if popoverClosing { return }
+        guard !popoverClosing else { return }
         if popover.isShown {
             popover.performClose(nil)
         } else {
@@ -135,12 +136,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
     }
 
-    // MARK: - Finder Toolbar
-
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if let button = statusItem.button {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            syncDataToPopover()
+            scanAndSync()
         }
         return false
     }
@@ -162,15 +161,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     func openSession(_ sid: String) {
-        guard isValidUUID(sid) else { return }
-        if let pid = scanner.sessionPIDMap[sid] {
+        guard isValidUUID(sid) else {
+            os_log("openSession: invalid UUID %{public}@", log: log, type: .error, sid)
+            return
+        }
+        // 活跃会话：聚焦已有终端窗口即可，不新开终端
+        if let pid = scanner.sessionPIDMap[sid], terminal.focusTerminalWindow(forPID: pid) {
             popover.performClose(nil)
-            _ = terminal.focusTerminalWindow(forPID: pid)
             return
         }
         guard guardAuth() else { return }
         popover.performClose(nil)
 
+        // 预写描述到 next-session.json，让 claude --resume 后 Hub 能识别这个会话
         let sidPrefix = String(sid.prefix(8))
         let desc = descStore.description(sid) ?? scanner.hubDescs[sidPrefix] ?? ""
         if !desc.isEmpty {
@@ -191,18 +194,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         syncDataToPopover()
     }
 
+    // MARK: - Dialogs
+
     func repairStaleSessions() {
         popover.performClose(nil)
         let home = FileManager.default.homeDirectoryForCurrentUser
 
+        let candidates = scanner.sessions.filter { !scanner.activeSIDs.contains($0.sid) }
         for stale in scanner.staleSessions {
             _ = terminal.focusTerminalWindow(forPID: stale.pid)
-            let candidates = scanner.sessions.filter { !scanner.activeSIDs.contains($0.sid) }
 
             if candidates.isEmpty {
                 let alert = NSAlert()
-                alert.messageText = "未找到候选会话"
-                alert.informativeText = "没有找到可以匹配的会话文件。"
+                alert.messageText = "没有可用的会话"
+                alert.informativeText = "当前没有可以关联的会话记录。"
                 alert.runModal()
                 continue
             }
@@ -225,6 +230,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             do {
                 let data = try JSONSerialization.data(withJSONObject: sessionData, options: [.prettyPrinted])
                 try data.write(to: stale.file, options: .atomic)
+                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: stale.file.path)
             } catch {
                 os_log("repairStaleSessions write failed: %{public}@", log: log, type: .error, error.localizedDescription)
             }
@@ -238,14 +244,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         alert.addButton(withTitle: "确定")
         alert.addButton(withTitle: "取消")
 
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 68))
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 72))
 
         let dirLabel = NSTextField(labelWithString: "默认工作目录：")
-        dirLabel.frame = NSRect(x: 0, y: 44, width: 100, height: 20)
+        dirLabel.frame = NSRect(x: 0, y: 48, width: 100, height: 20)
         dirLabel.font = NSFont.systemFont(ofSize: 12)
         container.addSubview(dirLabel)
 
-        let dirField = NSTextField(frame: NSRect(x: 104, y: 42, width: 190, height: 22))
+        let dirField = NSTextField(frame: NSRect(x: 104, y: 46, width: 190, height: 22))
         let expandedDir = (config.workingDir as NSString).expandingTildeInPath
         dirField.stringValue = expandedDir
         dirField.isEditable = false
@@ -253,18 +259,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         container.addSubview(dirField)
 
         let browseBtn = NSButton(title: "选择…", target: nil, action: nil)
-        browseBtn.frame = NSRect(x: 298, y: 40, width: 60, height: 24)
+        browseBtn.frame = NSRect(x: 298, y: 44, width: 60, height: 24)
         browseBtn.bezelStyle = .rounded
         browseBtn.controlSize = .small
         container.addSubview(browseBtn)
 
         let authCheck = NSButton(checkboxWithTitle: "启动前检查登录状态", target: nil, action: nil)
-        authCheck.frame = NSRect(x: 0, y: 12, width: 220, height: 18)
+        authCheck.frame = NSRect(x: 0, y: 16, width: 220, height: 18)
         authCheck.state = config.authCheckEnabled ? .on : .off
         container.addSubview(authCheck)
 
         let authHint = NSTextField(labelWithString: "每次启动会话前检查认证，可能有 1-2 秒延迟")
-        authHint.frame = NSRect(x: 20, y: -4, width: 340, height: 14)
+        authHint.frame = NSRect(x: 20, y: 0, width: 340, height: 14)
         authHint.font = NSFont.systemFont(ofSize: 10)
         authHint.textColor = .tertiaryLabelColor
         container.addSubview(authHint)

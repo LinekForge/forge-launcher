@@ -2,7 +2,7 @@ import Foundation
 
 /// Hub 编排层——薄 adapter，把 AppDelegate 的调用委托给 HubClient（I/O）和 ChannelDialog（UI）。
 /// AppDelegate 调用接口保持不变，本层只做 forwarding。
-class HubExtension {
+final class HubExtension {
     let client: HubClient
     let dialog: ChannelDialog
 

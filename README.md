@@ -64,7 +64,7 @@
 git clone https://github.com/LinekForge/forge-launcher.git
 cd forge-launcher
 ./build.sh
-open Forge Launcher.app
+open "Forge Launcher.app"
 ```
 
 编译产物 `Forge Launcher.app` 出现在项目根目录。菜单栏右上角出现芙蓉花图标，点击即用。
@@ -151,7 +151,7 @@ build.sh                       一键编译（quit → swiftc 14 文件 → code
 | ghostty-ttys/             | \~/.claude/             | TTY → Ghostty terminal ID 桥接文件 |
 | scan-sessions.py          | \~/.claude/自动化/scripts/ | 会话扫描脚本（build.sh 自动部署）          |
 
-## 已知问题
+## 兼容性说明
 
 * Claude Code 的 `--resume` 有竞态 bug（[#8067](https://github.com/anthropics/claude-code/issues/8067)），偶尔导致 PID 追踪文件记错 session ID。启动器能检测并提示一键修复
 

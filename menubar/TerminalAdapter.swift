@@ -38,13 +38,14 @@ private func ttyForPID(_ pid: Int) -> String? {
     process.arguments = ["-o", "tty=", "-p", "\(pid)"]
     process.standardOutput = pipe
     process.standardError = FileHandle.nullDevice
-    do { try process.run(); process.waitUntilExit() } catch {
+    do { try process.run() } catch {
         os_log("ps failed for PID %d: %{public}@", log: log, type: .error, pid, error.localizedDescription)
         return nil
     }
     let data = pipe.fileHandleForReading.readDataToEndOfFile()
+    process.waitUntilExit()
     let name = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    return name.isEmpty ? nil : name
+    return (name.isEmpty || name == "??") ? nil : name
 }
 
 // MARK: - Dynamic Terminal (auto-detect on every call)
@@ -52,7 +53,7 @@ private func ttyForPID(_ pid: Int) -> String? {
 /// 每次 openTerminal / focusTerminalWindow 时动态检测当前跑着什么终端。
 /// Ghostty 在跑就用 Ghostty，否则 Terminal.app 兜底。
 /// 用户中途启动 Ghostty——下一次操作自动切过去，不用重启 Launcher。
-class DynamicTerminal: TerminalAdapter {
+final class DynamicTerminal: TerminalAdapter {
     private var lastType: String = ""
 
     private func current() -> TerminalAdapter {
@@ -82,7 +83,7 @@ class DynamicTerminal: TerminalAdapter {
 
 // MARK: - Ghostty Implementation
 
-class GhosttyTerminal: TerminalAdapter {
+final class GhosttyTerminal: TerminalAdapter {
 
     func openTerminal(_ command: String) {
         let escaped = escapeForAppleScript(command)
@@ -133,7 +134,7 @@ class GhosttyTerminal: TerminalAdapter {
 
 // MARK: - Terminal.app Implementation
 
-class AppleTerminal: TerminalAdapter {
+final class AppleTerminal: TerminalAdapter {
 
     func openTerminal(_ command: String) {
         let escaped = escapeForAppleScript(command)
