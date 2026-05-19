@@ -42,21 +42,9 @@
 
 ## 安装
 
-### 依赖
-
-* macOS 13.0+（Apple Silicon；x86\_64 需改 `build.sh` 的 target triple）
-
-* Xcode Command Line Tools（`swiftc` + `codesign`）
-
-* Python 3（系统自带）
-
+* macOS 13.0+（Apple Silicon）
 * [Claude Code](https://claude.ai/code)（`claude` 在 PATH 中）
-
-* 终端：**自动检测**，启动时自动选用系统里在跑的终端
-
-  * 推荐 [Ghostty](https://ghostty.org) — 现代、快、支持精确窗口聚焦
-
-  * Terminal.app 自动兜底（macOS 自带，不用额外装任何东西）
+* 终端自动检测（推荐 [Ghostty](https://ghostty.org)，Terminal.app 自动兜底）
 
 ### 下载即用
 
@@ -65,7 +53,7 @@
 > 首次打开可能被 macOS Gatekeeper 拦截（ad-hoc 签名）。解决：右键点击 app →「打开」，或终端运行 `xattr -cr "Forge Launcher.app"`。
 
 <details>
-<summary><strong>或从源码编译</strong></summary>
+<summary><strong>或从源码编译</strong>（需要 Xcode Command Line Tools + Python 3）</summary>
 
 ```bash
 git clone https://github.com/LinekForge/forge-launcher.git

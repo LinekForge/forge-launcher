@@ -88,18 +88,34 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private func deployScanScript() {
-        guard let src = Bundle.main.path(forResource: "scan-sessions", ofType: "py") else { return }
+        guard let src = Bundle.main.path(forResource: "scan-sessions", ofType: "py") else {
+            os_log(.error, log: log, "scan-sessions.py not found in bundle")
+            return
+        }
         let dst = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude/自动化/scripts/scan-sessions.py")
         let dstDir = dst.deletingLastPathComponent()
-        try? FileManager.default.createDirectory(at: dstDir, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(at: dstDir, withIntermediateDirectories: true)
+        } catch {
+            os_log(.error, log: log, "Failed to create script dir: %{public}@", error.localizedDescription)
+            return
+        }
         if !FileManager.default.fileExists(atPath: dst.path) {
-            try? FileManager.default.copyItem(atPath: src, toPath: dst.path)
+            do {
+                try FileManager.default.copyItem(atPath: src, toPath: dst.path)
+            } catch {
+                os_log(.error, log: log, "Failed to copy scan script: %{public}@", error.localizedDescription)
+            }
         } else if let srcData = FileManager.default.contents(atPath: src),
                   let dstData = FileManager.default.contents(atPath: dst.path),
                   srcData != dstData {
-            try? FileManager.default.removeItem(at: dst)
-            try? FileManager.default.copyItem(atPath: src, toPath: dst.path)
+            do {
+                try FileManager.default.removeItem(at: dst)
+                try FileManager.default.copyItem(atPath: src, toPath: dst.path)
+            } catch {
+                os_log(.error, log: log, "Failed to update scan script: %{public}@", error.localizedDescription)
+            }
         }
     }
 
