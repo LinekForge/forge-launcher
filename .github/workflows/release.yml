@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          MENU_APP="Forge Launcher.app"
+          mkdir -p "$MENU_APP/Contents/MacOS" "$MENU_APP/Contents/Resources"
+          cp menubar/Info.plist "$MENU_APP/Contents/"
+          cp menubar/icon.png "$MENU_APP/Contents/Resources/"
+          [ -f menubar/AppIcon.icns ] && cp menubar/AppIcon.icns "$MENU_APP/Contents/Resources/"
+
+          swiftc \
+            menubar/Models.swift \
+            menubar/Utilities.swift \
+            menubar/AuthGuard.swift \
+            menubar/TerminalAdapter.swift \
+            menubar/SessionStore.swift \
+            menubar/SessionDescriptionStore.swift \
+            menubar/ConfigStore.swift \
+            menubar/SessionScanner.swift \
+            menubar/HubClient.swift \
+            menubar/ChannelDialog.swift \
+            menubar/HubExtension.swift \
+            menubar/PopoverController.swift \
+            menubar/AppDelegate.swift \
+            menubar/main.swift \
+            -o "$MENU_APP/Contents/MacOS/ForgeLauncher" \
+            -framework Cocoa \
+            -target arm64-apple-macos13.0 \
+            -suppress-warnings
+
+          codesign --force --sign - "$MENU_APP"
+
+      - name: Package
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: ditto -c -k --keepParent "Forge Launcher.app" "Forge-Launcher-${TAG_NAME}.zip"
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "Forge-Launcher-*.zip"
+          generate_release_notes: false
+          body_path: .github/release-body.md
