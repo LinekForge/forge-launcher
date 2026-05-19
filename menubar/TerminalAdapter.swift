@@ -120,7 +120,7 @@ final class GhosttyTerminal: TerminalAdapter {
         let script = """
         tell application "Ghostty"
             repeat with t in every terminal
-                if id of t is "\(escapeForAppleScript(termID))" then
+                if (id of t as text) is "\(escapeForAppleScript(termID))" then
                     focus t
                     return true
                 end if
