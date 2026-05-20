@@ -92,7 +92,7 @@ final class ChannelDialog {
 
         guard guardAuth() else { return }
         client.writeSessionFile(tag: tag, description: desc, channels: subscribe, history: history)
-        terminal.openTerminal("cd \(config.shellWorkingDir) && claude \(Self.channelFlags)")
+        terminal.openTerminal("cd \(config.shellWorkingDir) && claude\(config.modelFlag) \(Self.channelFlags)")
     }
 
     // MARK: - Custom Launch
@@ -124,7 +124,7 @@ final class ChannelDialog {
 
         guard guardAuth() else { return }
         client.writeSessionFile(tag: tag, description: desc, channels: result.subscribe, history: result.history)
-        terminal.openTerminal("cd \(config.shellWorkingDir) && claude \(Self.channelFlags)")
+        terminal.openTerminal("cd \(config.shellWorkingDir) && claude\(config.modelFlag) \(Self.channelFlags)")
     }
 
     // MARK: - Resume Channel
@@ -160,7 +160,7 @@ final class ChannelDialog {
 
         guard guardAuth() else { return }
         client.writeSessionFile(tag: tag, description: desc, channels: result.subscribe, history: result.history)
-        terminal.openTerminal("cd \(config.shellWorkingDir) && claude --resume \(sid) \(Self.channelFlags)")
+        terminal.openTerminal("cd \(config.shellWorkingDir) && claude\(config.modelFlag) --resume \(sid) \(Self.channelFlags)")
     }
 
     // MARK: - Hub Naming (tag)

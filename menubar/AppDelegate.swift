@@ -189,7 +189,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     func launchNew() {
         guard guardAuth() else { return }
         popover.performClose(nil)
-        terminal.openTerminal("cd \(config.shellWorkingDir) && claude")
+        terminal.openTerminal("cd \(config.shellWorkingDir) && claude\(config.modelFlag)")
     }
 
     func openSession(_ sid: String) {
@@ -212,13 +212,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             hub?.writeSessionFile(tag: "", description: desc, channels: [], history: [:])
         }
 
-        terminal.openTerminal("cd \(config.shellWorkingDir) && claude --resume \(sid)")
+        terminal.openTerminal("cd \(config.shellWorkingDir) && claude\(config.modelFlag) --resume \(sid)")
     }
 
     func openAllSessions() {
         guard guardAuth() else { return }
         popover.performClose(nil)
-        terminal.openTerminal("cd \(config.shellWorkingDir) && claude --resume")
+        terminal.openTerminal("cd \(config.shellWorkingDir) && claude\(config.modelFlag) --resume")
     }
 
     func toggleStar(_ sid: String) {
@@ -276,14 +276,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         alert.addButton(withTitle: "确定")
         alert.addButton(withTitle: "取消")
 
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 72))
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 100))
 
         let dirLabel = NSTextField(labelWithString: "默认工作目录：")
-        dirLabel.frame = NSRect(x: 0, y: 48, width: 100, height: 20)
+        dirLabel.frame = NSRect(x: 0, y: 76, width: 100, height: 20)
         dirLabel.font = NSFont.systemFont(ofSize: 12)
         container.addSubview(dirLabel)
 
-        let dirField = NSTextField(frame: NSRect(x: 104, y: 46, width: 190, height: 22))
+        let dirField = NSTextField(frame: NSRect(x: 104, y: 74, width: 190, height: 22))
         let expandedDir = (config.workingDir as NSString).expandingTildeInPath
         dirField.stringValue = expandedDir
         dirField.isEditable = false
@@ -291,10 +291,31 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         container.addSubview(dirField)
 
         let browseBtn = NSButton(title: "选择…", target: nil, action: nil)
-        browseBtn.frame = NSRect(x: 298, y: 44, width: 60, height: 24)
+        browseBtn.frame = NSRect(x: 298, y: 72, width: 60, height: 24)
         browseBtn.bezelStyle = .rounded
         browseBtn.controlSize = .small
         container.addSubview(browseBtn)
+
+        let modelLabel = NSTextField(labelWithString: "模型：")
+        modelLabel.frame = NSRect(x: 0, y: 48, width: 100, height: 20)
+        modelLabel.font = NSFont.systemFont(ofSize: 12)
+        container.addSubview(modelLabel)
+
+        let modelOptions = [
+            ("", "默认（跟随 CC 配置）"),
+            ("claude-opus-4-7", "Opus 4.7 · 1M"),
+            ("claude-opus-4-6[1m]", "Opus 4.6 · 1M"),
+            ("claude-opus-4-6", "Opus 4.6 · 200K"),
+            ("claude-sonnet-4-6[1m]", "Sonnet 4.6 · 1M"),
+            ("claude-sonnet-4-6", "Sonnet 4.6 · 200K"),
+            ("claude-haiku-4-5", "Haiku 4.5 · 200K"),
+        ]
+        let modelPopup = NSPopUpButton(frame: NSRect(x: 104, y: 46, width: 254, height: 24), pullsDown: false)
+        for (_, label) in modelOptions { modelPopup.addItem(withTitle: label) }
+        if let idx = modelOptions.firstIndex(where: { $0.0 == config.modelOverride }) {
+            modelPopup.selectItem(at: idx)
+        }
+        container.addSubview(modelPopup)
 
         let authCheck = NSButton(checkboxWithTitle: "启动前检查登录状态", target: nil, action: nil)
         authCheck.frame = NSRect(x: 0, y: 16, width: 220, height: 18)
@@ -319,6 +340,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         if response == .alertFirstButtonReturn {
             let newDir = dirField.stringValue
             if newDir != expandedDir { config.setWorkingDir(newDir) }
+            let newModel = modelOptions[modelPopup.indexOfSelectedItem].0
+            if newModel != config.modelOverride { config.setModelOverride(newModel) }
             let newAuth = authCheck.state == .on
             if newAuth != config.authCheckEnabled { config.setAuthCheckEnabled(newAuth) }
         }

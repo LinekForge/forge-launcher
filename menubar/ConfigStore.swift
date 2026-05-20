@@ -9,6 +9,7 @@ final class ConfigStore {
 
     private(set) var workingDir: String = "~"
     private(set) var authCheckEnabled: Bool = false
+    private(set) var modelOverride: String = ""
 
     func load() {
         guard let data = try? Data(contentsOf: file) else {
@@ -33,6 +34,9 @@ final class ConfigStore {
         if let auth = obj["authCheckEnabled"] as? Bool {
             authCheckEnabled = auth
         }
+        if let model = obj["modelOverride"] as? String {
+            modelOverride = model
+        }
     }
 
     func setWorkingDir(_ dir: String) {
@@ -43,6 +47,18 @@ final class ConfigStore {
     func setAuthCheckEnabled(_ enabled: Bool) {
         authCheckEnabled = enabled
         save()
+    }
+
+    func setModelOverride(_ model: String) {
+        modelOverride = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        save()
+    }
+
+    /// `--model 'xxx'` fragment for shell commands, empty if no override
+    var modelFlag: String {
+        guard !modelOverride.isEmpty else { return "" }
+        let escaped = modelOverride.replacingOccurrences(of: "'", with: "'\\''")
+        return " --model '\(escaped)'"
     }
 
     var shellWorkingDir: String {
@@ -57,6 +73,7 @@ final class ConfigStore {
         var obj: [String: Any] = [:]
         if workingDir != "~" { obj["defaultWorkDir"] = workingDir }
         if authCheckEnabled { obj["authCheckEnabled"] = authCheckEnabled }
+        if !modelOverride.isEmpty { obj["modelOverride"] = modelOverride }
         do {
             let data = try JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys])
             try data.write(to: file, options: .atomic)
