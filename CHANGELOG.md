@@ -1,11 +1,22 @@
 # 变更日志
 
-## v0.1.3 (2026-05-19)
+## v0.1.3 (2026-05-20)
+
+### 新功能
+- 设置面板增加**模型选择**下拉菜单——覆盖 CC 的 settings.json 配置，通过 `--model` 参数强制指定（解决 CC 静默丢失 `[1m]` 后缀的 bug）
 
 ### 改进
 - `scan-sessions.py` 打包进 `Contents/Resources`，启动时自动部署（缺失或过期自动覆盖）
-- `Info.plist` 版本号同步（`1.0` → `0.1.2`）
+- `Info.plist` 版本号同步
 - README 增加 Release 直接下载入口，源码编译折叠为 details
+- 单实例防护已移除（导致 build 后 app 消失）
+
+### Bug 修复
+- auth check 超时时关闭 pipe 读端（防 readQueue 死锁）
+- scan-sessions.py 正则收窄（不再误删 `/Users/...` 开头的用户消息）
+- Ghostty focus 用 `as text` 比较 id（兼容未来格式变化）
+- build.sh 提示行路径加引号（复制可执行）
+- CONTRIBUTING 步骤措辞统一
 
 ## v0.1.2 (2026-05-19)
 
