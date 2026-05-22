@@ -56,7 +56,8 @@ final class ChannelDialog {
         container.addSubview(presetLabel)
 
         let presetPopup = NSPopUpButton(frame: NSRect(x: 22, y: 4, width: 278, height: 26), pullsDown: false)
-        presetPopup.addItem(withTitle: "全通道（默认）")
+        let allLabel = config.enabledChannels.isEmpty ? "全通道（默认）" : "已启用通道（默认）"
+        presetPopup.addItem(withTitle: allLabel)
         for p in presets {
             presetPopup.addItem(withTitle: p.name)
         }
@@ -82,12 +83,22 @@ final class ChannelDialog {
         var history: [String: Int]
 
         if selectedIdx == 0 {
-            subscribe = hubChannels.map { $0.id }
-            history = Dictionary(uniqueKeysWithValues: hubChannels.map { ($0.id, 100) })
+            let activeChannels = config.enabledChannels.isEmpty
+                ? hubChannels : hubChannels.filter { config.enabledChannels.contains($0.id) }
+            subscribe = activeChannels.map { $0.id }
+            let histCount = config.defaultHistoryCount
+            history = histCount > 0
+                ? Dictionary(uniqueKeysWithValues: activeChannels.map { ($0.id, histCount) })
+                : [:]
         } else {
             let preset = presets[selectedIdx - 1]
-            subscribe = preset.subscribe
-            history = preset.history
+            if config.enabledChannels.isEmpty {
+                subscribe = preset.subscribe
+                history = preset.history
+            } else {
+                subscribe = preset.subscribe.filter { config.enabledChannels.contains($0) }
+                history = preset.history.filter { config.enabledChannels.contains($0.key) }
+            }
         }
 
         guard guardAuth() else { return }
@@ -272,6 +283,13 @@ final class ChannelDialog {
         preselectedChannels: Set<String>?,
         allowSavePreset: Bool
     ) -> (subscribe: [String], history: [String: Int], savePreset: Bool)? {
+        let channels = config.enabledChannels.isEmpty
+            ? hubChannels
+            : hubChannels.filter { config.enabledChannels.contains($0.id) }
+        guard !channels.isEmpty else {
+            NSSound.beep()
+            return nil
+        }
         let alert = NSAlert()
         alert.messageText = title
         alert.informativeText = "订阅：接收该通道的实时消息\n历史：启动时回放的消息条数"
@@ -282,12 +300,12 @@ final class ChannelDialog {
         }
 
         let rowHeight: CGFloat = 28
-        let totalHeight = CGFloat(hubChannels.count) * rowHeight + 4
+        let totalHeight = CGFloat(channels.count) * rowHeight + 4
         let container = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: totalHeight))
 
         var checkboxes: [(id: String, sub: NSButton, combo: NSComboBox)] = []
 
-        for (i, ch) in hubChannels.enumerated() {
+        for (i, ch) in channels.enumerated() {
             let y = totalHeight - CGFloat(i + 1) * rowHeight
 
             let sub = NSButton(checkboxWithTitle: "", target: nil, action: nil)
@@ -306,7 +324,7 @@ final class ChannelDialog {
             combo.completes = false
             combo.numberOfVisibleItems = 6
             combo.addItems(withObjectValues: ["0", "50", "100", "200", "500"])
-            combo.stringValue = "100"
+            combo.stringValue = "\(config.defaultHistoryCount)"
             combo.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)
             container.addSubview(combo)
 
@@ -328,7 +346,7 @@ final class ChannelDialog {
         var history: [String: Int] = [:]
         for (id, sub, combo) in checkboxes {
             if sub.state == .on { subscribe.append(id) }
-            let count = Int(combo.stringValue) ?? 100
+            let count = Int(combo.stringValue) ?? config.defaultHistoryCount
             if count > 0 { history[id] = max(0, count) }
         }
 

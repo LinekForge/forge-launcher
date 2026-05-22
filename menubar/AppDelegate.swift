@@ -276,14 +276,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         alert.addButton(withTitle: "确定")
         alert.addButton(withTitle: "取消")
 
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 100))
+        let allChannels = hub?.client.fetchHubChannels() ?? []
+        let channelRowHeight: CGFloat = 20
+        let channelBlockHeight = allChannels.isEmpty ? 0 : channelRowHeight * CGFloat(allChannels.count) + 24
+        let containerHeight: CGFloat = 120 + channelBlockHeight
 
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: containerHeight))
+        var y = containerHeight
+
+        y -= 24
         let dirLabel = NSTextField(labelWithString: "默认工作目录：")
-        dirLabel.frame = NSRect(x: 0, y: 76, width: 100, height: 20)
+        dirLabel.frame = NSRect(x: 0, y: y, width: 100, height: 20)
         dirLabel.font = NSFont.systemFont(ofSize: 12)
         container.addSubview(dirLabel)
 
-        let dirField = NSTextField(frame: NSRect(x: 104, y: 74, width: 190, height: 22))
+        let dirField = NSTextField(frame: NSRect(x: 104, y: y - 2, width: 190, height: 22))
         let expandedDir = (config.workingDir as NSString).expandingTildeInPath
         dirField.stringValue = expandedDir
         dirField.isEditable = false
@@ -291,13 +298,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         container.addSubview(dirField)
 
         let browseBtn = NSButton(title: "选择…", target: nil, action: nil)
-        browseBtn.frame = NSRect(x: 298, y: 72, width: 60, height: 24)
+        browseBtn.frame = NSRect(x: 298, y: y - 2, width: 60, height: 24)
         browseBtn.bezelStyle = .rounded
         browseBtn.controlSize = .small
         container.addSubview(browseBtn)
 
+        y -= 28
         let modelLabel = NSTextField(labelWithString: "模型：")
-        modelLabel.frame = NSRect(x: 0, y: 48, width: 100, height: 20)
+        modelLabel.frame = NSRect(x: 0, y: y, width: 100, height: 20)
         modelLabel.font = NSFont.systemFont(ofSize: 12)
         container.addSubview(modelLabel)
 
@@ -310,20 +318,62 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             ("claude-sonnet-4-6", "Sonnet 4.6 · 200K"),
             ("claude-haiku-4-5", "Haiku 4.5 · 200K"),
         ]
-        let modelPopup = NSPopUpButton(frame: NSRect(x: 104, y: 46, width: 254, height: 24), pullsDown: false)
+        let modelPopup = NSPopUpButton(frame: NSRect(x: 104, y: y - 2, width: 254, height: 24), pullsDown: false)
         for (_, label) in modelOptions { modelPopup.addItem(withTitle: label) }
         if let idx = modelOptions.firstIndex(where: { $0.0 == config.modelOverride }) {
             modelPopup.selectItem(at: idx)
         }
         container.addSubview(modelPopup)
 
+        var channelChecks: [(id: String, check: NSButton)] = []
+        if !allChannels.isEmpty {
+            y -= 24
+            let chLabel = NSTextField(labelWithString: "通道（取消勾选的不显示在弹窗里）：")
+            chLabel.frame = NSRect(x: 0, y: y, width: 360, height: 16)
+            chLabel.font = NSFont.systemFont(ofSize: 11)
+            chLabel.textColor = .secondaryLabelColor
+            container.addSubview(chLabel)
+
+            for ch in allChannels {
+                y -= channelRowHeight
+                let chk = NSButton(checkboxWithTitle: ch.name, target: nil, action: nil)
+                chk.frame = NSRect(x: 16, y: y, width: 200, height: 18)
+                chk.font = NSFont.systemFont(ofSize: 12)
+                let enabled = config.enabledChannels.isEmpty || config.enabledChannels.contains(ch.id)
+                chk.state = enabled ? .on : .off
+                container.addSubview(chk)
+                channelChecks.append((id: ch.id, check: chk))
+            }
+        }
+
+        y -= 28
+        let histLabel = NSTextField(labelWithString: "默认历史条数：")
+        histLabel.frame = NSRect(x: 0, y: y, width: 100, height: 20)
+        histLabel.font = NSFont.systemFont(ofSize: 12)
+        container.addSubview(histLabel)
+
+        let histCombo = NSComboBox(frame: NSRect(x: 104, y: y - 2, width: 80, height: 24))
+        histCombo.isEditable = true
+        histCombo.addItems(withObjectValues: ["0", "50", "100", "200", "500"])
+        histCombo.stringValue = "\(config.defaultHistoryCount)"
+        histCombo.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        container.addSubview(histCombo)
+
+        let histUnit = NSTextField(labelWithString: "条")
+        histUnit.frame = NSRect(x: 188, y: y, width: 30, height: 18)
+        histUnit.font = NSFont.systemFont(ofSize: 12)
+        histUnit.textColor = .secondaryLabelColor
+        container.addSubview(histUnit)
+
+        y -= 24
         let authCheck = NSButton(checkboxWithTitle: "启动前检查登录状态", target: nil, action: nil)
-        authCheck.frame = NSRect(x: 0, y: 16, width: 220, height: 18)
+        authCheck.frame = NSRect(x: 0, y: y, width: 220, height: 18)
         authCheck.state = config.authCheckEnabled ? .on : .off
         container.addSubview(authCheck)
 
+        y -= 16
         let authHint = NSTextField(labelWithString: "每次启动会话前检查认证，可能有 1-2 秒延迟")
-        authHint.frame = NSRect(x: 20, y: 0, width: 340, height: 14)
+        authHint.frame = NSRect(x: 20, y: y, width: 340, height: 14)
         authHint.font = NSFont.systemFont(ofSize: 10)
         authHint.textColor = .tertiaryLabelColor
         container.addSubview(authHint)
@@ -342,6 +392,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             if newDir != expandedDir { config.setWorkingDir(newDir) }
             let newModel = modelOptions[modelPopup.indexOfSelectedItem].0
             if newModel != config.modelOverride { config.setModelOverride(newModel) }
+
+            if !channelChecks.isEmpty {
+                let allOn = channelChecks.allSatisfy { $0.check.state == .on }
+                let enabled = allOn ? [] : channelChecks.filter { $0.check.state == .on }.map { $0.id }
+                if enabled != config.enabledChannels { config.setEnabledChannels(enabled) }
+            }
+
+            let newHist = Int(histCombo.stringValue) ?? 100
+            if newHist != config.defaultHistoryCount { config.setDefaultHistoryCount(newHist) }
+
             let newAuth = authCheck.state == .on
             if newAuth != config.authCheckEnabled { config.setAuthCheckEnabled(newAuth) }
         }
