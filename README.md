@@ -20,7 +20,7 @@
 
 * **自动刷新** — 每 30 秒后台扫描，绿点实时更新
 
-* **设置** — 底栏「设置」可配默认工作目录、模型覆盖、启动前认证检查
+* **设置** — 底栏「设置」可配默认工作目录、模型覆盖、通道过滤、默认历史条数、启动前认证检查
 
 * **开机自启** — launchd 一次配好
 
@@ -111,7 +111,7 @@ menubar/
 ├── SessionScanner.swift       活跃检测 + 全量会话扫描
 ├── SessionStore.swift         置顶持久化
 ├── SessionDescriptionStore.swift  本地命名持久化（按完整 UUID 索引）
-├── ConfigStore.swift          设置持久化（工作目录 + 模型覆盖 + 认证检查开关）
+├── ConfigStore.swift          设置持久化（工作目录 + 模型 + 通道 + 历史条数 + 认证检查）
 ├── TerminalAdapter.swift      终端抽象层（协议 + Ghostty / Terminal.app 实现 + 动态检测）
 ├── HubClient.swift            Hub HTTP + 文件 I/O（可选，Hub 不在自动降级）；共享 hubGet / postToHub
 ├── ChannelDialog.swift        Hub 相关弹窗 + 流程编排
@@ -142,7 +142,7 @@ build.sh                       一键编译（quit → swiftc 14 文件 → code
 | ------------------------- | ----------------------- | ------------------------------ |
 | session-descriptions.json | \~/.claude/状态/          | 会话名字 + 标签（启动器管理，按 UUID 索引）     |
 | session-stars.json        | \~/.claude/状态/          | 置顶列表                           |
-| forge-launcher-config.json | \~/.claude/状态/         | 设置（默认工作目录、模型覆盖、认证检查开关）     |
+| forge-launcher-config.json | \~/.claude/状态/         | 设置（工作目录、模型、通道过滤、历史条数、认证检查） |
 | ghostty-ttys/             | \~/.claude/             | TTY → Ghostty terminal ID 桥接文件 |
 | scan-sessions.py          | \~/.claude/自动化/scripts/ | 会话扫描脚本（build.sh 自动部署）          |
 
