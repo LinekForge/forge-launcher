@@ -10,6 +10,8 @@ final class ConfigStore {
     private(set) var workingDir: String = "~"
     private(set) var authCheckEnabled: Bool = false
     private(set) var modelOverride: String = ""
+    private(set) var enabledChannels: [String] = []
+    private(set) var defaultHistoryCount: Int = 100
 
     func load() {
         guard let data = try? Data(contentsOf: file) else {
@@ -37,6 +39,12 @@ final class ConfigStore {
         if let model = obj["modelOverride"] as? String {
             modelOverride = model
         }
+        if let channels = obj["enabledChannels"] as? [String] {
+            enabledChannels = channels
+        }
+        if let count = obj["defaultHistoryCount"] as? Int, count >= 0 {
+            defaultHistoryCount = count
+        }
     }
 
     func setWorkingDir(_ dir: String) {
@@ -51,6 +59,16 @@ final class ConfigStore {
 
     func setModelOverride(_ model: String) {
         modelOverride = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        save()
+    }
+
+    func setEnabledChannels(_ channels: [String]) {
+        enabledChannels = channels
+        save()
+    }
+
+    func setDefaultHistoryCount(_ count: Int) {
+        defaultHistoryCount = max(0, count)
         save()
     }
 
@@ -74,6 +92,8 @@ final class ConfigStore {
         if workingDir != "~" { obj["defaultWorkDir"] = workingDir }
         if authCheckEnabled { obj["authCheckEnabled"] = authCheckEnabled }
         if !modelOverride.isEmpty { obj["modelOverride"] = modelOverride }
+        if !enabledChannels.isEmpty { obj["enabledChannels"] = enabledChannels }
+        if defaultHistoryCount != 100 { obj["defaultHistoryCount"] = defaultHistoryCount }
         do {
             let data = try JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys])
             try data.write(to: file, options: .atomic)
