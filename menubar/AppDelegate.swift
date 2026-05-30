@@ -409,79 +409,109 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
     }
 
-    /// 清理 state=="failed" 僵死 daemon job 的**可见残留目录**（~/.claude/jobs/<id>/）。
-    /// 送葬前先跑只读存活探测（claude agents --json），把每条标成 进程仍在/残留可清/状态未知，
-    /// 双重确认 + 列出将删的 job 名/摘要。只动 scanner.scanFailedJobs() 收的 failed job
-    /// （blocked/done/活 session 已在扫描层排除）。是继 repairStaleSessions 之后第二个用户手动触发才写 CC 文件的场景。
-    ///
-    /// ⚠️ 范围边界：只删 jobs/<id>/ 目录，不终止底层 daemon 进程。完整 teardown（确认进程真死 +
-    /// 释放）属 oracle 线（#8/#12 §B），不在本功能范围——只负责清掉可见的目录残留。
+    /// 处理 state=="failed" 僵死 daemon job。送葬前跑只读存活探测（claude agents --json），
+    /// 按诊断**分两条路**（用户手动点红条触发，是继 repairStaleSessions 之后第二个写/删 CC 文件的场景）：
+    ///  - **live**（failed + sessionId 仍在 agents 列表）= 进程还活、有对话有工作，没真死
+    ///    → ⏹ `claude stop <jobId>`：终止进程**但保留对话**（可 `claude attach` 恢复），**不删目录**。
+    ///      实测停后 state → "stopped"，自动掉出 state=="failed" 红条，不会被再当尸体催删。
+    ///  - **dead**（failed + 不在 agents 列表）= 进程已亡、无可恢复 = 真坏的尸体
+    ///    → 🗑 removeItem 删 ~/.claude/jobs/<id>/（不可恢复）。
+    ///  - **unknown**：probe 不可用（liveSessionIds==nil）→ 保守退回「带警告的纯删」；
+    ///    probe 可用但该 job 缺 sessionId → 跳过，不自动选破坏动作。
     func purgeFailedJobs() {
         popover.performClose(nil)
         let jobs = scanner.failedJobs
         if jobs.isEmpty { return }
 
         // 只读存活探测放后台跑（claude agents 子进程最长 timeout，不冻结 UI）。
-        // 护栏（降级）：probe 只影响对话框措辞；删除动作绝不依赖它——nil 也照常能删。
+        // 护栏（降级）：probe nil → unknown → 不自动选破坏动作（见 presentPurgeFlow）。
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let liveIds = self?.scanner.liveAgentSessionIds()
             DispatchQueue.main.async {
-                self?.presentPurgeConfirmation(jobs: jobs, liveSessionIds: liveIds)
+                self?.presentPurgeFlow(jobs: jobs, liveSessionIds: liveIds)
             }
         }
     }
 
-    /// 弹双确认框并执行删除。措辞随只读探测结果动态：
-    /// live（进程仍在）→ ⚠ 留孤儿提示；dead（不在 live 列表）→ 残留可清；
-    /// liveSessionIds==nil（探测不可用）→ 降级回静态范围边界文案。
-    private func presentPurgeConfirmation(jobs: [FailedJob], liveSessionIds: Set<String>?) {
-        let liveness = jobs.map { SessionScanner.jobLiveness(sessionId: $0.sessionId, liveSessionIds: liveSessionIds) }
-        let liveCount = liveness.filter { $0 == .live }.count
-        let probeAvailable = liveSessionIds != nil
-
-        let listing = zip(jobs, liveness).map { (job, live) -> String in
-            let mark: String
-            switch live {
-            case .live:    mark = "  ⚠ 进程仍在运行"
-            case .dead:    mark = "  ✓ 残留可清"
-            case .unknown: mark = ""
-            }
-            let detail = job.detail.isEmpty ? "" : "\n    \(job.detail.prefix(80))"
-            return "• \(job.name)  [\(job.jobId)]\(mark)\(detail)"
-        }.joined(separator: "\n")
-
-        // 第一确认：摘要 + 列表（含每条的存活标注）
-        let first = NSAlert()
-        first.messageText = "清理 \(jobs.count) 个僵死任务？"
-        first.informativeText = "以下 daemon job 处于 state:failed，将删除其 ~/.claude/jobs/<id>/ 目录：\n\n\(listing)"
-        first.alertStyle = .warning
-        first.addButton(withTitle: "取消")   // 默认（Return）= 安全
-        first.addButton(withTitle: "清理…")
-        guard first.runModal() == .alertSecondButtonReturn else { return }
-
-        // 第二确认：不可恢复 + 范围边界（措辞随探测结果）
-        let boundary: String
-        if liveCount > 0 {
-            boundary = "⚠ 其中 \(liveCount) 个进程仍在 live 列表：删目录不会停止它们，只会留下孤儿。彻底停用请走 `claude agents`。"
-        } else if probeAvailable {
-            boundary = "已核对 claude agents：这些 session 都不在 live 列表，删目录是安全的残留清理。"
-        } else {
-            boundary = "注意：未能核对进程存活（claude agents 不可用）。删的只是 jobs/<id>/ 目录；若进程仍在运行，彻底停用 `claude agents`。"
-        }
-        let second = NSAlert()
-        second.messageText = "确认删除这 \(jobs.count) 个任务目录？"
-        second.informativeText = "此操作不可恢复，删除的是 ~/.claude/jobs/<id>/ 目录（可见残留）。\n\n\(boundary)"
-        second.alertStyle = .critical
-        second.addButton(withTitle: "取消")   // 默认（Return）= 安全
-        second.addButton(withTitle: "删除（不可恢复）")
-        guard second.runModal() == .alertSecondButtonReturn else { return }
-
+    /// 按 probe 诊断把 jobs 分成 停用/删除/跳过 三桶，弹 overview 确认，继续后：
+    /// 后台跑 claude stop（不冻结 UI）→ 回主线程报告停用失败 + 对删除做不可恢复二次确认。
+    private func presentPurgeFlow(jobs: [FailedJob], liveSessionIds: Set<String>?) {
+        let probeDown = (liveSessionIds == nil)
+        var stopTargets: [FailedJob] = [], deleteTargets: [FailedJob] = [], skipTargets: [FailedJob] = []
         for job in jobs {
-            do {
-                try FileManager.default.removeItem(at: job.dir)
-            } catch {
-                os_log("purgeFailedJobs remove failed (%{public}@): %{public}@",
-                       log: log, type: .error, job.jobId, error.localizedDescription)
+            switch SessionScanner.jobLiveness(sessionId: job.sessionId, liveSessionIds: liveSessionIds) {
+            case .live:    stopTargets.append(job)
+            case .dead:    deleteTargets.append(job)
+            case .unknown: probeDown ? deleteTargets.append(job) : skipTargets.append(job)
+            }
+        }
+
+        func line(_ j: FailedJob, _ kind: String) -> String {
+            let d = j.detail.isEmpty ? "" : "\n    \(j.detail.prefix(70))"
+            return "\(kind) \(j.name)  [\(j.jobId)]\(d)"
+        }
+        var lines: [String] = []
+        lines += stopTargets.map { line($0, "⏹ 停用(保留对话)") }
+        lines += deleteTargets.map { line($0, "🗑 删除(不可恢复)") }
+        lines += skipTargets.map { line($0, "⏭ 跳过(状态未知)") }
+
+        let overview = NSAlert()
+        overview.messageText = "处理 \(jobs.count) 个僵死任务"
+        var info = ""
+        if probeDown { info += "⚠ 未能核对进程存活（claude agents 不可用），以下按「删除残留」保守处理。\n\n" }
+        info += "继续将执行：\n" + lines.joined(separator: "\n")
+        if !stopTargets.isEmpty {
+            info += "\n\n⏹ 停用 = `claude stop`：终止进程但保留对话，可 `claude attach` 恢复，不删目录。"
+        }
+        overview.informativeText = info
+        overview.alertStyle = .warning
+        overview.addButton(withTitle: "取消")   // 默认（Return）= 安全
+        overview.addButton(withTitle: "继续")
+        guard overview.runModal() == .alertSecondButtonReturn else { return }
+
+        // 停用（claude stop 子进程）放后台跑，不冻结 UI；完了回主线程报告 + 做删除二次确认。
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            var stopFailed: [FailedJob] = []
+            for job in stopTargets {
+                if !self.scanner.stopAgentSession(jobId: job.jobId, sessionId: job.sessionId) {
+                    stopFailed.append(job)   // 不假装停了
+                }
+            }
+            DispatchQueue.main.async {
+                self.finishPurge(deleteTargets: deleteTargets, stopFailed: stopFailed)
+            }
+        }
+    }
+
+    /// 报告 claude stop 失败（不静默吞）+ 对「删除残留」做不可恢复的二次确认。
+    private func finishPurge(deleteTargets: [FailedJob], stopFailed: [FailedJob]) {
+        if !stopFailed.isEmpty {
+            let a = NSAlert()
+            a.messageText = "⏹ \(stopFailed.count) 个停用未确认成功"
+            a.informativeText = "claude stop 未确认这些已停（退出码非 0 或仍在 agents 列表），未动它们的目录：\n"
+                + stopFailed.map { "• \($0.name) [\($0.jobId)]" }.joined(separator: "\n")
+                + "\n\n可手动 `claude stop <id>`，或 `claude agents` 查看。"
+            a.alertStyle = .warning
+            a.runModal()
+        }
+        if !deleteTargets.isEmpty {
+            let del = NSAlert()
+            del.messageText = "🗑 删除 \(deleteTargets.count) 个残留目录？"
+            del.informativeText = "此操作不可恢复，删除 ~/.claude/jobs/<id>/（仅死掉的尸体，不影响其他会话）：\n"
+                + deleteTargets.map { "• \($0.name) [\($0.jobId)]" }.joined(separator: "\n")
+            del.alertStyle = .critical
+            del.addButton(withTitle: "取消")   // 默认（Return）= 安全
+            del.addButton(withTitle: "删除（不可恢复）")
+            if del.runModal() == .alertSecondButtonReturn {
+                for job in deleteTargets {
+                    do {
+                        try FileManager.default.removeItem(at: job.dir)
+                    } catch {
+                        os_log("purge remove failed (%{public}@): %{public}@",
+                               log: log, type: .error, job.jobId, error.localizedDescription)
+                    }
+                }
             }
         }
         scanAndSync()

@@ -177,6 +177,38 @@ final class SessionScanner {
         return live.contains(sessionId) ? .live : .dead
     }
 
+    /// 停用一个仍在运行的 bg session（live failed job）：`claude stop <短id>`。
+    ///
+    /// 实测 v2.1.154 行为（throwaway session 验过）：停后进程真死、离开 agents 列表、
+    /// state.json 变 "stopped"（→ 自动掉出 state=="failed" 红条）、对话保留可 `claude attach` 恢复。
+    /// daemon-aware（不像裸 kill <pid> 会被 claim-spare 复活）。**接受短 id（= jobId）**，不是完整 UUID。
+    ///
+    /// 返回 true = 确认停用成功（退出码 0 **且** 该 sessionId 已离开 `claude agents --json`）。
+    /// 双重判成功：退出码可靠（成功 0 / 无匹配 1），再用 agents 复查兜底，避免假装停了。
+    func stopAgentSession(jobId: String, sessionId: String, timeout: TimeInterval = 8.0) -> Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["claude", "stop", jobId]
+        process.environment = augmentedEnvironment()
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        do { try process.run() } catch { return false }
+
+        let group = DispatchGroup()
+        group.enter()
+        DispatchQueue.global(qos: .userInitiated).async { process.waitUntilExit(); group.leave() }
+        if group.wait(timeout: .now() + timeout) == .timedOut {
+            process.terminate()
+            return false   // 超时不假装停了
+        }
+        guard process.terminationStatus == 0 else { return false }
+
+        // 兜底复查：sessionId 不应再出现在 live 列表（非空时才查；空 sessionId 只能信退出码）
+        if sessionId.isEmpty { return true }
+        if let live = liveAgentSessionIds() { return !live.contains(sessionId) }
+        return true   // 复查不可用（probe nil）→ 退出码已 0，信它
+    }
+
     // MARK: - Session List Scanning
 
     func scanSessionsInBackground(completion: @escaping () -> Void) {
