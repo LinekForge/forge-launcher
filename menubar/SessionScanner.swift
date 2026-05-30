@@ -179,12 +179,13 @@ final class SessionScanner {
 
     /// 停用一个仍在运行的 bg session（live failed job）：`claude stop <短id>`。
     ///
-    /// 实测 v2.1.154 行为（throwaway session 验过）：停后进程真死、离开 agents 列表、
-    /// state.json 变 "stopped"（→ 自动掉出 state=="failed" 红条）、对话保留可 `claude attach` 恢复。
-    /// daemon-aware（不像裸 kill <pid> 会被 claim-spare 复活）。**接受短 id（= jobId）**，不是完整 UUID。
+    /// 实测 v2.1.154 行为（throwaway bg-fleet session 验过）：停后进程真死、零孤儿、离开 agents 列表、
+    /// transcript + job 目录都在、state.json 变 "done"/"stopped"（**都 ≠ failed → 自动掉出红条**）、
+    /// 对话保留可 `claude attach` 恢复。daemon-aware（不像裸 kill <pid> 会被 claim-spare 复活、删目录会留孤儿）。
+    /// **接受短 id（= jobId，8 位前缀）**，不是完整 UUID（实测完整 UUID 报 "No job matching"）。
     ///
-    /// 返回 true = 确认停用成功（退出码 0 **且** 该 sessionId 已离开 `claude agents --json`）。
-    /// 双重判成功：退出码可靠（成功 0 / 无匹配 1），再用 agents 复查兜底，避免假装停了。
+    /// 返回 true = 确认停用成功（退出码 0 **且** sessionId 已掉出 `claude agents --json`）。
+    /// 退出码会骗人（no-match 也返 0），所以 agents 回查必须保留；但回查要 poll（掉出非瞬时，见下）。
     func stopAgentSession(jobId: String, sessionId: String, timeout: TimeInterval = 8.0) -> Bool {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
@@ -203,10 +204,19 @@ final class SessionScanner {
         }
         guard process.terminationStatus == 0 else { return false }
 
-        // 兜底复查：sessionId 不应再出现在 live 列表（非空时才查；空 sessionId 只能信退出码）
-        if sessionId.isEmpty { return true }
-        if let live = liveAgentSessionIds() { return !live.contains(sessionId) }
-        return true   // 复查不可用（probe nil）→ 退出码已 0，信它
+        // 兜底复查：sessionId 不应再出现在 live 列表（退出码会骗人——no-match 也返 0，所以这道回查必须保留）。
+        if sessionId.isEmpty { return true }   // 无 sessionId 可对照，只能信退出码
+
+        // ⚠️ 回查不能立刻做：主会话实测 `claude stop` ~0.2s 返回，但 session ~1s 后才掉出
+        // `claude agents --json`（非瞬时）。立刻查会看到它还在 → 误判 stop 失败。
+        // 改 poll：隔 ~0.7s 查一次，最多 ~5s，掉出即判成功；超时仍在才算真失败。
+        let deadline = Date().addingTimeInterval(5.0)
+        repeat {
+            Thread.sleep(forTimeInterval: 0.7)
+            guard let live = liveAgentSessionIds() else { return true }   // 复查不可用（probe nil）→ 退出码已 0，信它
+            if !live.contains(sessionId) { return true }                  // 已掉出 live 列表 = 确认停了
+        } while Date() < deadline
+        return false   // 超 ~5s 仍在 agents 列表 = 真失败
     }
 
     // MARK: - Session List Scanning
