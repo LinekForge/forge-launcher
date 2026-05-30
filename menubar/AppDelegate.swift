@@ -55,6 +55,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             self?.hub?.resumeChannel(sid)
         }
         popoverCtrl.onRepair = { [weak self] in self?.repairStaleSessions() }
+        popoverCtrl.onPurgeJobs = { [weak self] in self?.purgeFailedJobs() }
         popoverCtrl.onRefresh = { [weak self] in self?.scanAndSync() }
         popoverCtrl.onSettings = { [weak self] in self?.showSettings() }
         popoverCtrl.onQuit = { NSApplication.shared.terminate(nil) }
@@ -151,6 +152,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popoverCtrl.activeSIDs = scanner.activeSIDs
         popoverCtrl.starredSIDs = store.stars
         popoverCtrl.staleCount = scanner.staleSessions.count
+        popoverCtrl.failedJobCount = scanner.failedJobs.count
         popoverCtrl.hubTags = scanner.hubTags
         popoverCtrl.hubDescs = scanner.hubDescs
         popoverCtrl.sessionDescs = descStore.snapshot()
@@ -405,6 +407,84 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             let newAuth = authCheck.state == .on
             if newAuth != config.authCheckEnabled { config.setAuthCheckEnabled(newAuth) }
         }
+    }
+
+    /// 清理 state=="failed" 僵死 daemon job 的**可见残留目录**（~/.claude/jobs/<id>/）。
+    /// 送葬前先跑只读存活探测（claude agents --json），把每条标成 进程仍在/残留可清/状态未知，
+    /// 双重确认 + 列出将删的 job 名/摘要。只动 scanner.scanFailedJobs() 收的 failed job
+    /// （blocked/done/活 session 已在扫描层排除）。是继 repairStaleSessions 之后第二个用户手动触发才写 CC 文件的场景。
+    ///
+    /// ⚠️ 范围边界：只删 jobs/<id>/ 目录，不终止底层 daemon 进程。完整 teardown（确认进程真死 +
+    /// 释放）属 oracle 线（#8/#12 §B），不在本功能范围——只负责清掉可见的目录残留。
+    func purgeFailedJobs() {
+        popover.performClose(nil)
+        let jobs = scanner.failedJobs
+        if jobs.isEmpty { return }
+
+        // 只读存活探测放后台跑（claude agents 子进程最长 timeout，不冻结 UI）。
+        // 护栏（降级）：probe 只影响对话框措辞；删除动作绝不依赖它——nil 也照常能删。
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let liveIds = self?.scanner.liveAgentSessionIds()
+            DispatchQueue.main.async {
+                self?.presentPurgeConfirmation(jobs: jobs, liveSessionIds: liveIds)
+            }
+        }
+    }
+
+    /// 弹双确认框并执行删除。措辞随只读探测结果动态：
+    /// live（进程仍在）→ ⚠ 留孤儿提示；dead（不在 live 列表）→ 残留可清；
+    /// liveSessionIds==nil（探测不可用）→ 降级回静态范围边界文案。
+    private func presentPurgeConfirmation(jobs: [FailedJob], liveSessionIds: Set<String>?) {
+        let liveness = jobs.map { SessionScanner.jobLiveness(sessionId: $0.sessionId, liveSessionIds: liveSessionIds) }
+        let liveCount = liveness.filter { $0 == .live }.count
+        let probeAvailable = liveSessionIds != nil
+
+        let listing = zip(jobs, liveness).map { (job, live) -> String in
+            let mark: String
+            switch live {
+            case .live:    mark = "  ⚠ 进程仍在运行"
+            case .dead:    mark = "  ✓ 残留可清"
+            case .unknown: mark = ""
+            }
+            let detail = job.detail.isEmpty ? "" : "\n    \(job.detail.prefix(80))"
+            return "• \(job.name)  [\(job.jobId)]\(mark)\(detail)"
+        }.joined(separator: "\n")
+
+        // 第一确认：摘要 + 列表（含每条的存活标注）
+        let first = NSAlert()
+        first.messageText = "清理 \(jobs.count) 个僵死任务？"
+        first.informativeText = "以下 daemon job 处于 state:failed，将删除其 ~/.claude/jobs/<id>/ 目录：\n\n\(listing)"
+        first.alertStyle = .warning
+        first.addButton(withTitle: "取消")   // 默认（Return）= 安全
+        first.addButton(withTitle: "清理…")
+        guard first.runModal() == .alertSecondButtonReturn else { return }
+
+        // 第二确认：不可恢复 + 范围边界（措辞随探测结果）
+        let boundary: String
+        if liveCount > 0 {
+            boundary = "⚠ 其中 \(liveCount) 个进程仍在 live 列表：删目录不会停止它们，只会留下孤儿。彻底停用请走 `claude agents`。"
+        } else if probeAvailable {
+            boundary = "已核对 claude agents：这些 session 都不在 live 列表，删目录是安全的残留清理。"
+        } else {
+            boundary = "注意：未能核对进程存活（claude agents 不可用）。删的只是 jobs/<id>/ 目录；若进程仍在运行，彻底停用 `claude agents`。"
+        }
+        let second = NSAlert()
+        second.messageText = "确认删除这 \(jobs.count) 个任务目录？"
+        second.informativeText = "此操作不可恢复，删除的是 ~/.claude/jobs/<id>/ 目录（可见残留）。\n\n\(boundary)"
+        second.alertStyle = .critical
+        second.addButton(withTitle: "取消")   // 默认（Return）= 安全
+        second.addButton(withTitle: "删除（不可恢复）")
+        guard second.runModal() == .alertSecondButtonReturn else { return }
+
+        for job in jobs {
+            do {
+                try FileManager.default.removeItem(at: job.dir)
+            } catch {
+                os_log("purgeFailedJobs remove failed (%{public}@): %{public}@",
+                       log: log, type: .error, job.jobId, error.localizedDescription)
+            }
+        }
+        scanAndSync()
     }
 
     func showChooseDialog(title: String, prompt: String, items: [String]) -> Int? {

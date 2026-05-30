@@ -6,6 +6,8 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
     private var tableView: NSTableView!
     private var warningButton: NSButton!
     private var warningHeight: NSLayoutConstraint!
+    private var jobsWarningButton: NSButton!
+    private var jobsWarningHeight: NSLayoutConstraint!
     private var countLabel: NSTextField!
     private var refreshBtn: NSButton!
     private var channelBtn: NSButton!
@@ -14,6 +16,7 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
     var activeSIDs: Set<String> = []
     var starredSIDs: Set<String> = []
     var staleCount = 0
+    var failedJobCount = 0
     var hubTags: [String: String] = [:]   // keyed by session ID prefix (8 chars), Hub 兼容 fallback
     var hubDescs: [String: String] = [:]  // keyed by session ID prefix (8 chars), Hub 兼容 fallback
     var sessionDescs: [String: SessionDescription] = [:]  // keyed by FULL sessionId (UUID)——启动器 own 的权威
@@ -30,6 +33,7 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
     var onResumeChannel: ((String) -> Void)?
     var onStar: ((String) -> Void)?
     var onRepair: (() -> Void)?
+    var onPurgeJobs: (() -> Void)?
     var onRefresh: (() -> Void)?
     var onQuit: (() -> Void)?
     var onViewAll: (() -> Void)?
@@ -62,6 +66,14 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
         warningButton.isHidden = true
         warningButton.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(warningButton)
+
+        // Failed-job warning (hidden when no failed daemon job) — 镜像 stale 警告
+        jobsWarningButton = NSButton(title: "", target: self, action: #selector(doPurgeJobs))
+        jobsWarningButton.isBordered = false
+        jobsWarningButton.alignment = .left
+        jobsWarningButton.isHidden = true
+        jobsWarningButton.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(jobsWarningButton)
 
         tableView = NSTableView()
         tableView.delegate = self
@@ -106,6 +118,7 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
         container.addSubview(bottomBar)
 
         warningHeight = warningButton.heightAnchor.constraint(equalToConstant: 0)
+        jobsWarningHeight = jobsWarningButton.heightAnchor.constraint(equalToConstant: 0)
 
         NSLayoutConstraint.activate([
             searchField.topAnchor.constraint(equalTo: container.topAnchor, constant: 12),
@@ -120,7 +133,12 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
             warningButton.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
             warningHeight,
 
-            scrollView.topAnchor.constraint(equalTo: warningButton.bottomAnchor, constant: 4),
+            jobsWarningButton.topAnchor.constraint(equalTo: warningButton.bottomAnchor),
+            jobsWarningButton.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
+            jobsWarningButton.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
+            jobsWarningHeight,
+
+            scrollView.topAnchor.constraint(equalTo: jobsWarningButton.bottomAnchor, constant: 4),
             scrollView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: bottomBar.topAnchor, constant: -4),
@@ -166,6 +184,21 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
         } else {
             warningButton.isHidden = true
             warningHeight.constant = 0
+        }
+
+        if failedJobCount > 0 {
+            jobsWarningButton.isHidden = false
+            jobsWarningHeight.constant = 22
+            jobsWarningButton.attributedTitle = NSAttributedString(
+                string: "🪦 \(failedJobCount) 个僵死任务（state:failed）— 点击清理",
+                attributes: [
+                    .font: NSFont.systemFont(ofSize: 12, weight: .medium),
+                    .foregroundColor: NSColor.systemRed,
+                ]
+            )
+        } else {
+            jobsWarningButton.isHidden = true
+            jobsWarningHeight.constant = 0
         }
 
         // 📡 通道会话按钮降级：
@@ -465,6 +498,7 @@ class SessionPopoverController: NSViewController, NSSearchFieldDelegate, NSTextF
     @objc func doNew() { onNew?() }
     @objc func doNewChannel() { onNewChannel?() }
     @objc func doRepair() { onRepair?() }
+    @objc func doPurgeJobs() { onPurgeJobs?() }
     @objc func doRefresh() {
         refreshBtn.title = "刷新中..."
         refreshBtn.isEnabled = false
