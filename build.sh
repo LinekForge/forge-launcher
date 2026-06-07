@@ -61,7 +61,9 @@ open "$MENU_APP"
 echo ""
 if [ -d "/Applications/Ghostty.app" ]; then
     echo "💡 终端：检测到 Ghostty，启动后自动使用 Ghostty。"
+elif [ -d "/Applications/iTerm.app" ]; then
+    echo "💡 终端：检测到 iTerm2，启动后自动使用 iTerm2。"
 else
-    echo "💡 终端：使用 Terminal.app。推荐装 Ghostty (https://ghostty.org) 获得更好体验。"
-    echo "   装了 Ghostty 后，退出菜单栏再重新打开即可自动切换。"
+    echo "💡 终端：使用 Terminal.app。推荐装 Ghostty (https://ghostty.org) 或 iTerm2 获得更好体验。"
+    echo "   装了新终端后，退出菜单栏再重新打开即可自动切换。"
 fi

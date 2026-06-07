@@ -65,6 +65,13 @@ final class DynamicTerminal: TerminalAdapter {
             }
             return GhosttyTerminal()
         }
+        if apps.contains(where: { $0.bundleIdentifier == "com.googlecode.iterm2" }) {
+            if lastType != "iterm2" {
+                lastType = "iterm2"
+                os_log("Terminal: → iTerm2", log: log, type: .info)
+            }
+            return ITerm2Terminal()
+        }
         if lastType != "terminal" {
             lastType = "terminal"
             os_log("Terminal: → Terminal.app", log: log, type: .info)
@@ -167,5 +174,48 @@ final class AppleTerminal: TerminalAdapter {
         return false
         """
         return runAppleScript(script, label: "Terminal.app focus")?.booleanValue ?? false
+    }
+}
+
+// MARK: - iTerm2 Implementation
+
+final class ITerm2Terminal: TerminalAdapter {
+
+    func openTerminal(_ command: String) {
+        let escaped = escapeForAppleScript(command)
+        let script = """
+        tell application "iTerm"
+            activate
+            set newWindow to (create window with default profile)
+            tell current session of newWindow
+                write text "\(escaped)"
+            end tell
+        end tell
+        """
+        runAppleScript(script, label: "iTerm2 openTerminal")
+    }
+
+    func focusTerminalWindow(forPID pid: Int) -> Bool {
+        guard let ttyName = ttyForPID(pid) else { return false }
+
+        let fullTTY = "/dev/\(ttyName)"
+        let script = """
+        tell application "iTerm"
+            repeat with w in windows
+                repeat with t in tabs of w
+                    repeat with s in sessions of t
+                        if tty of s is "\(fullTTY)" then
+                            select s
+                            set index of w to 1
+                            activate
+                            return true
+                        end if
+                    end repeat
+                end repeat
+            end repeat
+        end tell
+        return false
+        """
+        return runAppleScript(script, label: "iTerm2 focus")?.booleanValue ?? false
     }
 }
