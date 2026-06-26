@@ -311,6 +311,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         let modelOptions = [
             ("", "默认（跟随 CC 配置）"),
+            ("claude-opus-4-8", "Opus 4.8 · 1M"),
             ("claude-opus-4-7", "Opus 4.7 · 1M"),
             ("claude-opus-4-6[1m]", "Opus 4.6 · 1M"),
             ("claude-opus-4-6", "Opus 4.6 · 200K"),
