@@ -309,8 +309,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         modelLabel.font = NSFont.systemFont(ofSize: 12)
         container.addSubview(modelLabel)
 
-        // 加新模型：ID 从 CC 的 /model 菜单或 `claude --model '<id>' -p "model ID?"` 确认。
-        // [1m] 后缀 = 1M context，不带 = 标准 context（通常 200K）。
+        // 维护模型列表：
+        // 1. 终端跑 /model 看 CC 当前支持哪些模型和显示名
+        // 2. 用 `claude --model '<id>' -p "你的 model ID 和 context window?"` 验证 ID 和 context 大小
+        // 3. 格式可能随 CC 版本变化——以实测为准，不要假设
         let modelOptions = [
             ("", "默认（跟随 CC 配置）"),
             ("claude-opus-4-8", "Opus 4.8 · 1M"),
