@@ -322,7 +322,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             ("claude-sonnet-4-6[1m]", "Sonnet 4.6 · 1M"),
             ("claude-sonnet-4-6", "Sonnet 4.6 · 200K"),
             ("claude-haiku-4-5", "Haiku 4.5 · 200K"),
-            ("claude-fable-5", "Fable 5 · 200K"),
+            ("claude-fable-5", "Fable 5 · 1M"),
         ]
         let modelPopup = NSPopUpButton(frame: NSRect(x: 104, y: y - 2, width: 254, height: 24), pullsDown: false)
         for (_, label) in modelOptions { modelPopup.addItem(withTitle: label) }
