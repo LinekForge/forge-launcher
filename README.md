@@ -2,7 +2,7 @@
 
 **Claude Code 的菜单栏会话管理器**——常驻菜单栏，一键启动、切换、恢复、搜索、命名会话。
 
-> **安全声明**：Forge Launcher 只在 Claude Code 官方 CLI 和文件接口上做 UI 层。不修改 Claude Code 的源代码、不改动会话 JSONL 文件、不接触 Claude Code 内部状态。启动器自己的数据（名字、置顶）存在独立文件里，和 Claude Code 的数据完全隔离。唯一写入 CC 文件的场景是[竞态修复](#已知问题)（用户手动点击才触发，修复的是 CC 自己写错的 PID 追踪文件）。
+> **安全声明**：Forge Launcher 只在 Claude Code 官方 CLI 和文件接口上做 UI 层。不修改 Claude Code 的源代码、不改动会话 JSONL 文件、不接触 Claude Code 内部状态。启动器自己的数据（名字、置顶）存在独立文件里，和 Claude Code 的数据完全隔离。写入/删除 CC 文件只有两个场景，都需用户手动点击才触发：① [竞态修复](#已知问题)（修复 CC 自己写错的 PID 追踪文件）；② 处理僵死任务（`state:failed` 的 daemon job，按存活探测分两路）：进程仍在的 → ⏹ `claude stop` 终止进程**但保留对话**（可 `claude attach` 恢复，不删目录）；已死的尸体 → 🗑 删除残留目录 `~/.claude/jobs/<id>/`（不可恢复，二次确认）。均需用户手动点击触发，绝不碰 `blocked` 等存活态。
 
 * **会话列表** — 按日期分组（今天/昨天/4月20日…），活跃会话绿色标记
 
